@@ -1,19 +1,19 @@
 import Replicate from "replicate";
 
-const MODEL_MAP: Record<string, string> = {
-  "video-model-x": "minimax/video-01",
-  "stable-video": "stability-ai/stable-video-diffusion",
-};
-
 export interface ReplicateRunResult {
   url: string;
   cost?: number | null;
 }
 
+export interface RunReplicateOptions {
+  lengthSeconds?: number;
+  aspectRatio?: string;
+}
+
 export async function runReplicate(
-  modelKey: string,
+  providerModelId: string,
   prompt: string,
-  options?: { lengthSeconds?: number }
+  options?: RunReplicateOptions
 ): Promise<ReplicateRunResult> {
   const token = process.env.REPLICATE_API_TOKEN;
   if (!token) {
@@ -21,11 +21,12 @@ export async function runReplicate(
   }
 
   const replicate = new Replicate({ auth: token });
-  const modelPath = MODEL_MAP[modelKey] ?? modelKey;
+  const modelPath = providerModelId;
 
   const input: Record<string, unknown> = {
     prompt,
     ...(options?.lengthSeconds && { duration: Math.min(options.lengthSeconds, 6) }),
+    ...(options?.aspectRatio && { aspect_ratio: options.aspectRatio }),
   };
 
   const output = await replicate.run(modelPath as `${string}/${string}`, { input });

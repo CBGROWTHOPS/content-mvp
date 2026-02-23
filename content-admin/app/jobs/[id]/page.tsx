@@ -39,16 +39,26 @@ export default function JobDetailPage() {
     setRegenerateError(null);
     setRegenerating(true);
 
-    const payload = {
+    const basePayload: Record<string, unknown> = {
       brand: job.brand,
       format: job.format,
-      length_seconds: job.payload.length_seconds ?? 6,
       objective: job.objective,
       hook_type: job.payload.hook_type ?? "contrast",
-      scene_structure: job.payload.scene_structure ?? 2,
-      model: job.model,
       variables: job.payload.variables ?? {},
     };
+
+    if (job.model) {
+      basePayload.model_key = job.model;
+    }
+
+    if (job.format === "image") {
+      basePayload.aspect_ratio = job.payload.aspect_ratio ?? "1:1";
+    } else {
+      basePayload.length_seconds = job.payload.length_seconds ?? 6;
+      basePayload.scene_structure = job.payload.scene_structure ?? 2;
+    }
+
+    const payload = basePayload;
 
     const result = await createJob(payload);
     setRegenerating(false);

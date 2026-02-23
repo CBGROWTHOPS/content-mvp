@@ -1,13 +1,29 @@
 import { Router, type Request, type Response } from "express";
 import { contentQueue } from "../../lib/queue.js";
 import { supabase } from "../../lib/supabase.js";
+import { selectModel, getModelsForApi } from "../../lib/models.js";
 import { validateJobBody } from "../middleware/validate.js";
 
 const router = Router();
 
+router.get("/models", (_req: Request, res: Response) => {
+  res.json(getModelsForApi());
+});
+
 router.post("/generate", validateJobBody, async (req: Request, res: Response) => {
   try {
     const payload = req.body;
+    const selected = selectModel(
+      payload.format,
+      payload.quality,
+      payload.model_key
+    );
+
+    const enrichedPayload = {
+      ...payload,
+      model_key: selected.key,
+      provider_model_id: selected.provider_model_id,
+    };
 
     const { data: job, error: insertError } = await supabase
       .from("jobs")
@@ -16,8 +32,8 @@ router.post("/generate", validateJobBody, async (req: Request, res: Response) =>
         brand: payload.brand,
         format: payload.format,
         objective: payload.objective,
-        model: payload.model,
-        payload,
+        model: selected.key,
+        payload: enrichedPayload,
       })
       .select("id")
       .single();
@@ -32,7 +48,7 @@ router.post("/generate", validateJobBody, async (req: Request, res: Response) =>
 
     await contentQueue.add(
       "content-job",
-      { jobId, payload },
+      { jobId, payload: enrichedPayload },
       { jobId }
     );
 

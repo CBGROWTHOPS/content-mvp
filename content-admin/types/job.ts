@@ -15,14 +15,18 @@ export type HookType =
   | "statistic"
   | "story";
 
+export type AspectRatio = "1:1" | "4:5" | "9:16" | "16:9";
+
 export interface JobInput {
   brand: string;
   format: JobFormat;
-  length_seconds: number;
+  length_seconds?: number;
+  scene_structure?: number;
+  aspect_ratio?: AspectRatio;
   objective: JobObjective;
   hook_type: HookType;
-  scene_structure: number;
-  model: string;
+  model_key?: string;
+  model?: string;
   variables: Record<string, string | number | boolean>;
 }
 

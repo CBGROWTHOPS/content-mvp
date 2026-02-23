@@ -4,9 +4,14 @@ export type { JobInput };
 
 export type JobStatus = "pending" | "processing" | "completed" | "failed";
 
+export interface EnrichedJobPayload extends JobInput {
+  model_key: string;
+  provider_model_id: string;
+}
+
 export interface QueueJobPayload {
   jobId: string;
-  payload: JobInput;
+  payload: EnrichedJobPayload;
 }
 
 export interface ReplicateOutput {

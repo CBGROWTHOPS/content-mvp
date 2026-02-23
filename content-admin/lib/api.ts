@@ -47,6 +47,34 @@ export async function fetchJob(
   }
 }
 
+export interface ApiModel {
+  key: string;
+  provider_model_id: string;
+  formats_supported: string[];
+  default_for_format: Record<string, boolean>;
+  cost_tier: string;
+}
+
+export async function fetchModels(): Promise<
+  { data: ApiModel[] } | { error: string }
+> {
+  try {
+    const res = await fetch(`${getBaseUrl()}/models`, {
+      cache: "no-store",
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: res.statusText }));
+      return { error: (err as { error?: string }).error ?? res.statusText };
+    }
+    const data = await res.json();
+    return { data: data as ApiModel[] };
+  } catch (e) {
+    return {
+      error: e instanceof Error ? e.message : "Failed to fetch models",
+    };
+  }
+}
+
 export async function createJob(
   payload: object
 ): Promise<{ data: { id: string; status: string } } | { error: string }> {
