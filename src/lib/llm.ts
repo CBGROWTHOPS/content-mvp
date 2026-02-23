@@ -9,6 +9,101 @@ export interface StrategySelection {
   visualEnergy: string;
   hookFramework: string;
   platformFormat: string;
+  directionLevel?: "template" | "director" | "cinematic";
+  productCategory?: string;
+  productType?: string;
+}
+
+/** Creative Director Brief - full playbook for Director/Cinematic levels */
+export interface CreativeDirectorBrief {
+  creativeDirection: {
+    concept: string;
+    audienceFeeling: string;
+    visualMetaphor: string;
+    pacingReference: string;
+    editingReference: string;
+    doAndDontList: string[];
+  };
+  artDirection: {
+    locationStyle: string;
+    materials: string[];
+    colorPalette: string[];
+    textureNotes: string;
+    furnitureNotes: string;
+    windowDetails: string;
+    timeOfDay: string;
+    weatherCues: string;
+  };
+  cameraDirection: {
+    lensFeel: string;
+    framingRules: string[];
+    movementRules: string[];
+    compositionRules: string[];
+    mustBeVisible: string[];
+  };
+  lightingDirection: {
+    exposureTargets: string;
+    glareBehavior: string;
+    diffusionBehavior: string;
+    shadowBehavior: string;
+  };
+  typographySystem: {
+    fontType: string;
+    hierarchy: string;
+    placementGrid: string;
+    animationRules: string;
+    maxWordsPerFrame: number;
+  };
+  soundDirection: {
+    musicMood: string;
+    sfxList: string[];
+    mixNotes: string;
+    voiceoverStyle: string;
+  };
+  deliverables: {
+    cuts: string[];
+    hookVariants: number;
+    ctaEndFrame: string;
+  };
+}
+
+/** Single shot spec for reel blueprint */
+export interface ReelBlueprintShot {
+  shotId: string;
+  timeStart: number;
+  timeEnd: number;
+  shotType: "wide" | "medium" | "close";
+  cameraMovement: "static" | "slow_push" | "handheld" | "pan" | "other";
+  sceneDescription: string;
+  propsSetDressingNotes?: string;
+  lightingNotes?: string;
+  talentNotes?: string;
+  onScreenText?: {
+    text: string;
+    position?: string;
+    animationRules?: string;
+  };
+  brollRequirements?: string;
+  assetRequirements?: string[];
+}
+
+/** Renderable reel spec for Director/Cinematic levels */
+export interface ReelBlueprint {
+  format: string;
+  durationSeconds: number;
+  fps: number;
+  music?: string;
+  soundDesign?: string;
+  colorGrade?: string;
+  typography?: string;
+  deliverables?: string[];
+  shots: ReelBlueprintShot[];
+}
+
+export interface TokenUsage {
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
 }
 
 export interface GenerateContentResult {
@@ -20,7 +115,7 @@ export interface GenerateContentResult {
     caption: string;
     variations?: string[];
   };
-  creativeBrief: {
+  creativeBrief?: {
     imageDirection: {
       sceneDescription: string;
       cameraAngle: string;
@@ -39,10 +134,25 @@ export interface GenerateContentResult {
       colorGrade: string;
     };
     editorGuardrails: string[];
-  };
+  } | null;
+  creativeDirectorBrief?: CreativeDirectorBrief | null;
+  reelBlueprint?: ReelBlueprint | null;
+  tokenUsage?: TokenUsage;
 }
 
-function buildPrompt(brand: BrandKit, strategy: StrategySelection): string {
+function getProductCopyDirection(
+  brand: BrandKit,
+  productCategory?: string,
+  productType?: string
+): string | undefined {
+  if (!productCategory || !productType) return undefined;
+  const categories = brand.kit?.selectors?.productCatalog?.categories ?? [];
+  const cat = categories.find((c) => c.id === productCategory);
+  const type = cat?.types?.find((t) => t.id === productType);
+  return type?.copyDirection;
+}
+
+function buildBrandKitSection(brand: BrandKit, strategy: StrategySelection): string[] {
   const parts: string[] = [
     "You are a content strategist and creative director for a premium brand.",
     "",
@@ -80,7 +190,20 @@ function buildPrompt(brand: BrandKit, strategy: StrategySelection): string {
       : "",
   ];
 
-  parts.push(
+  const copyDir = getProductCopyDirection(
+    brand,
+    strategy.productCategory,
+    strategy.productType
+  );
+  if (copyDir) {
+    parts.push("", `Product copy direction (must follow): ${copyDir}`);
+  }
+
+  return parts;
+}
+
+function buildStrategySection(strategy: StrategySelection): string[] {
+  const lines: string[] = [
     "",
     "## Strategy Selection",
     `Campaign objective: ${strategy.campaignObjective}`,
@@ -89,42 +212,187 @@ function buildPrompt(brand: BrandKit, strategy: StrategySelection): string {
     `Visual energy: ${strategy.visualEnergy}`,
     `Hook framework: ${strategy.hookFramework}`,
     `Platform format: ${strategy.platformFormat}`,
+  ];
+  if (strategy.productCategory) {
+    lines.push(`Product category: ${strategy.productCategory}`);
+  }
+  if (strategy.productType) {
+    lines.push(`Product type: ${strategy.productType}`);
+  }
+  return lines;
+}
+
+function buildTemplateSchema(): object {
+  return {
+    marketingOutput: {
+      primaryText: "string",
+      headline: "string",
+      secondaryLine: "string (optional)",
+      cta: "string",
+      caption: "string",
+      variations: ["string (optional array)"],
+    },
+    creativeBrief: {
+      imageDirection: {
+        sceneDescription: "string",
+        cameraAngle: "string",
+        framing: "string",
+        interiorRequirements: ["string"],
+        exteriorContext: "string",
+        textureNotes: "string",
+        lightingNotes: "string",
+      },
+      videoDirection: {
+        scene1: "string",
+        scene2: "string",
+        timing: "string",
+        textOverlayRules: "string",
+        motionGuidance: "string",
+        colorGrade: "string",
+      },
+      editorGuardrails: ["string"],
+    },
+  };
+}
+
+function buildDirectorSchema(): object {
+  return {
+    marketingOutput: {
+      primaryText: "string",
+      headline: "string",
+      secondaryLine: "string (optional)",
+      cta: "string",
+      caption: "string",
+      variations: ["string (optional array)"],
+    },
+    creativeDirectorBrief: {
+      creativeDirection: {
+        concept: "string",
+        audienceFeeling: "string",
+        visualMetaphor: "string",
+        pacingReference: "string",
+        editingReference: "string",
+        doAndDontList: ["string"],
+      },
+      artDirection: {
+        locationStyle: "string",
+        materials: ["string"],
+        colorPalette: ["string"],
+        textureNotes: "string",
+        furnitureNotes: "string",
+        windowDetails: "string",
+        timeOfDay: "string",
+        weatherCues: "string",
+      },
+      cameraDirection: {
+        lensFeel: "string",
+        framingRules: ["string"],
+        movementRules: ["string"],
+        compositionRules: ["string"],
+        mustBeVisible: ["string"],
+      },
+      lightingDirection: {
+        exposureTargets: "string",
+        glareBehavior: "string",
+        diffusionBehavior: "string",
+        shadowBehavior: "string",
+      },
+      typographySystem: {
+        fontType: "string",
+        hierarchy: "string",
+        placementGrid: "string",
+        animationRules: "string",
+        maxWordsPerFrame: "number",
+      },
+      soundDirection: {
+        musicMood: "string",
+        sfxList: ["string"],
+        mixNotes: "string",
+        voiceoverStyle: "string",
+      },
+      deliverables: {
+        cuts: ["string"],
+        hookVariants: "number",
+        ctaEndFrame: "string",
+      },
+    },
+    reelBlueprint: {
+      format: "string (e.g. 9:16)",
+      durationSeconds: "number",
+      fps: "number",
+      music: "string (optional)",
+      soundDesign: "string (optional)",
+      colorGrade: "string (optional)",
+      typography: "string (optional)",
+      deliverables: ["string (optional)"],
+      shots: [
+        {
+          shotId: "string",
+          timeStart: "number",
+          timeEnd: "number",
+          shotType: "wide | medium | close",
+          cameraMovement: "static | slow_push | handheld | pan | other",
+          sceneDescription: "string",
+          propsSetDressingNotes: "string (optional)",
+          lightingNotes: "string (optional)",
+          talentNotes: "string (optional)",
+          onScreenText: {
+            text: "string",
+            position: "string (optional)",
+            animationRules: "string (optional)",
+          },
+          brollRequirements: "string (optional)",
+          assetRequirements: ["string (optional)"],
+        },
+      ],
+    },
+  };
+}
+
+function buildPrompt(brand: BrandKit, strategy: StrategySelection): string {
+  const directionLevel = strategy.directionLevel ?? "template";
+  const parts: string[] = [
+    ...buildBrandKitSection(brand, strategy),
+    ...buildStrategySection(strategy),
+  ];
+
+  if (directionLevel === "template") {
+    parts.push(
+      "",
+      "## Task",
+      "Generate marketing copy and a creative production brief. Return ONLY valid JSON matching this schema - no markdown, no explanation:",
+      JSON.stringify(buildTemplateSchema(), null, 2)
+    );
+    return parts.filter(Boolean).join("\n");
+  }
+
+  // Director or Cinematic
+  parts.push(
+    "",
+    "## Brand Kit as Safety Rails",
+    "The Reel Kit and Brand Kit above are mandatory safety rails. All creative direction, art direction, camera, lighting, typography, and sound must respect these constraints. Never violate voice rules, forbidden language, lighting rules, or scene requirements.",
     "",
     "## Task",
-    "Generate marketing copy and a creative production brief. Return ONLY valid JSON matching this schema - no markdown, no explanation:",
-    JSON.stringify({
-      marketingOutput: {
-        primaryText: "string",
-        headline: "string",
-        secondaryLine: "string (optional)",
-        cta: "string",
-        caption: "string",
-        variations: ["string (optional array)"],
-      },
-      creativeBrief: {
-        imageDirection: {
-          sceneDescription: "string",
-          cameraAngle: "string",
-          framing: "string",
-          interiorRequirements: ["string"],
-          exteriorContext: "string",
-          textureNotes: "string",
-          lightingNotes: "string",
-        },
-        videoDirection: {
-          scene1: "string",
-          scene2: "string",
-          timing: "string",
-          textOverlayRules: "string",
-          motionGuidance: "string",
-          colorGrade: "string",
-        },
-        editorGuardrails: ["string"],
-      },
-    }, null, 2),
+    "Generate marketing copy, a full Creative Director Brief (playbook for production), and a Reel Blueprint (renderable shot-by-shot spec). Return ONLY valid JSON matching this schema - no markdown, no explanation:"
   );
 
+  if (directionLevel === "cinematic") {
+    parts.push(
+      "",
+      "Cinematic level: Use advanced camera language, 3-5 shots minimum, detailed sound design, and pacing references. Richer production spec than Director."
+    );
+  }
+
+  parts.push(JSON.stringify(buildDirectorSchema(), null, 2));
   return parts.filter(Boolean).join("\n");
+}
+
+/** Returns the prompt string for a given brand and strategy (used for token estimation). */
+export function getPromptForEstimate(
+  brand: BrandKit,
+  strategy: StrategySelection
+): string {
+  return buildPrompt(brand, strategy);
 }
 
 export async function generateStructuredContent(
@@ -138,6 +406,7 @@ export async function generateStructuredContent(
 
   const brand = loadBrand(brandId) as BrandKit;
   const prompt = buildPrompt(brand, strategySelection);
+  const directionLevel = strategySelection.directionLevel ?? "template";
 
   const openai = new OpenAI({ apiKey });
   const completion = await openai.chat.completions.create({
@@ -160,9 +429,35 @@ export async function generateStructuredContent(
 
   const parsed = JSON.parse(raw) as GenerateContentResult;
 
-  if (!parsed.marketingOutput || !parsed.creativeBrief) {
-    throw new Error("Invalid response structure");
+  if (!parsed.marketingOutput) {
+    throw new Error("Invalid response structure: missing marketingOutput");
   }
 
-  return parsed;
+  if (directionLevel === "template") {
+    if (!parsed.creativeBrief) {
+      throw new Error("Invalid response structure: missing creativeBrief");
+    }
+  } else {
+    if (!parsed.creativeDirectorBrief) {
+      throw new Error(
+        "Invalid response structure: missing creativeDirectorBrief"
+      );
+    }
+    if (!parsed.reelBlueprint || !Array.isArray(parsed.reelBlueprint.shots)) {
+      throw new Error("Invalid response structure: missing reelBlueprint.shots");
+    }
+  }
+
+  const tokenUsage: TokenUsage | undefined = completion.usage
+    ? {
+        inputTokens: completion.usage.prompt_tokens ?? 0,
+        outputTokens: completion.usage.completion_tokens ?? 0,
+        totalTokens: completion.usage.total_tokens ?? 0,
+      }
+    : undefined;
+
+  return {
+    ...parsed,
+    tokenUsage,
+  };
 }

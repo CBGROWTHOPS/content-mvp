@@ -3,6 +3,7 @@ import express from "express";
 import generateRouter from "./routes/generate.js";
 import jobsRouter from "./routes/jobs.js";
 import brandsRouter from "./routes/brands.js";
+import saveToDriveRouter from "./routes/saveToDrive.js";
 
 const allowedOrigins = [
   "https://content-admin-nine.vercel.app",
@@ -34,5 +35,6 @@ app.get("/health", (_req, res) => {
 app.use(generateRouter);
 app.use("/jobs", jobsRouter);
 app.use("/brands", brandsRouter);
+app.use(saveToDriveRouter);
 
 export default app;

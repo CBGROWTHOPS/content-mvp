@@ -5,6 +5,19 @@ export interface StrategySelection {
   visualEnergy: string;
   hookFramework: string;
   platformFormat: string;
+  directionLevel?: "template" | "director" | "cinematic";
+  productCategory?: string;
+  productType?: string;
+  /** Advanced: duration in seconds, e.g. 6, 10, 15 */
+  duration?: number;
+  /** Advanced: number of hook variants */
+  hookCount?: number;
+  /** Advanced: number of content variants */
+  variantCount?: number;
+  /** Advanced: CTA style */
+  ctaStyle?: string;
+  /** Advanced: include offer in output */
+  offerToggle?: boolean;
 }
 
 export interface TileOption {
@@ -20,7 +33,14 @@ export const DEFAULT_STRATEGY: StrategySelection = {
   visualEnergy: "calm",
   hookFramework: "contrast",
   platformFormat: "reel_kit",
+  directionLevel: "template",
 };
+
+export const DIRECTION_LEVEL_OPTIONS: TileOption[] = [
+  { id: "template", label: "Template", description: "Strict reel kit, minimal choices, highly repeatable" },
+  { id: "director", label: "Director", description: "Full director brief + blueprint, brand guardrails" },
+  { id: "cinematic", label: "Cinematic", description: "Advanced camera, sound, pacing, more shots" },
+];
 
 export const CAMPAIGN_OBJECTIVE_OPTIONS: TileOption[] = [
   { id: "lead_generation", label: "Lead Generation", description: "Capture leads and consultations" },
@@ -68,3 +88,9 @@ export const PLATFORM_FORMAT_OPTIONS: TileOption[] = [
   { id: "reel_kit", label: "Reel Kit (9:16)", description: "9:16 transformation" },
   { id: "wide_video_kit", label: "Wide Video Kit (16:9)", description: "16:9 showcase" },
 ];
+
+export interface ProductCatalogCategory {
+  id: string;
+  label: string;
+  types: Array<{ id: string; label: string; copyDirection?: string }>;
+}

@@ -59,9 +59,21 @@ export interface ApiModel {
 
 export interface BrandProfile {
   brand_key: string;
-  positioning: string;
-  collections: Array<{ key: string; label: string; tagline: string }>;
-  primary_cta: string;
+  positioning?: string;
+  collections?: Array<{ key: string; label: string; tagline?: string }>;
+  primary_cta?: string;
+  /** Product catalog for brand-aware selectors */
+  kit?: {
+    selectors?: {
+      productCatalog?: {
+        categories: Array<{
+          id: string;
+          label: string;
+          types: Array<{ id: string; label: string; copyDirection?: string }>;
+        }>;
+      };
+    };
+  };
 }
 
 export async function fetchBrands(): Promise<
@@ -125,7 +137,13 @@ export async function fetchModels(): Promise<
   }
 }
 
-export async function generateContent(
+export interface TokenEstimate {
+  estimatedInput: number;
+  estimatedOutput: number;
+  estimatedTotal: number;
+}
+
+export async function fetchTokenEstimate(
   brandId: string,
   strategySelection: {
     campaignObjective: string;
@@ -134,7 +152,34 @@ export async function generateContent(
     visualEnergy: string;
     hookFramework: string;
     platformFormat: string;
+    directionLevel?: string;
   }
+): Promise<{ data: TokenEstimate } | { error: string }> {
+  try {
+    const params = new URLSearchParams({
+      brandId,
+      strategySelection: JSON.stringify(strategySelection),
+    });
+    const res = await fetch(`${getBaseUrl()}/generate-content/estimate?${params}`, {
+      cache: "no-store",
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const msg =
+        (json as { error?: string }).error ?? res.statusText;
+      return { error: msg };
+    }
+    return { data: json as TokenEstimate };
+  } catch (e) {
+    return {
+      error: e instanceof Error ? e.message : "Failed to fetch token estimate",
+    };
+  }
+}
+
+export async function generateContent(
+  brandId: string,
+  strategySelection: import("@/types/strategy").StrategySelection
 ): Promise<{ data: import("@/types/generate").GenerateResponse } | { error: string }> {
   try {
     const res = await fetch(`${getBaseUrl()}/generate-content`, {

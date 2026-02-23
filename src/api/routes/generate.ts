@@ -3,9 +3,46 @@ import { contentQueue } from "../../lib/queue.js";
 import { supabase } from "../../lib/supabase.js";
 import { selectModel, getModelsForApi } from "../../lib/models.js";
 import { validateJobBody } from "../middleware/validate.js";
-import { generateStructuredContent } from "../../lib/llm.js";
+import { generateStructuredContent, getPromptForEstimate } from "../../lib/llm.js";
+import { loadBrand } from "../../lib/brandRegistry.js";
+import { estimateTokenCount } from "../../lib/tokenEstimate.js";
 
 const router = Router();
+
+router.get("/generate-content/estimate", (req: Request, res: Response) => {
+  try {
+    const brandId = req.query.brandId as string | undefined;
+    const strategyParam = req.query.strategySelection;
+    const raw = (typeof strategyParam === "string"
+      ? (JSON.parse(strategyParam) as Record<string, unknown>)
+      : strategyParam) as Record<string, unknown> | undefined;
+    if (!brandId) {
+      res.status(400).json({ error: "brandId required" });
+      return;
+    }
+    const brand = loadBrand(brandId);
+    const dir = raw?.directionLevel as "template" | "director" | "cinematic" | undefined;
+    const directionLevel = (dir === "director" || dir === "cinematic" ? dir : "template") as "template" | "director" | "cinematic";
+    const strategy = raw
+      ? {
+          campaignObjective: String(raw.campaignObjective ?? ""),
+          audienceContext: String(raw.audienceContext ?? ""),
+          propertyType: String(raw.propertyType ?? ""),
+          visualEnergy: String(raw.visualEnergy ?? ""),
+          hookFramework: String(raw.hookFramework ?? ""),
+          platformFormat: String(raw.platformFormat ?? ""),
+          directionLevel,
+        }
+      : { campaignObjective: "", audienceContext: "", propertyType: "", visualEnergy: "", hookFramework: "", platformFormat: "", directionLevel: "template" as const };
+    const prompt = getPromptForEstimate(brand, strategy);
+    const estimate = estimateTokenCount(prompt, directionLevel);
+    res.json(estimate);
+  } catch (err) {
+    console.error("Token estimate error:", err);
+    const msg = err instanceof Error ? err.message : "Internal server error";
+    res.status(500).json({ error: msg });
+  }
+});
 
 router.get("/models", (_req: Request, res: Response) => {
   res.json(getModelsForApi());
@@ -18,7 +55,9 @@ router.post("/generate-content", async (req: Request, res: Response) => {
       res.status(400).json({ error: "brandId and strategySelection required" });
       return;
     }
+    // Pass full strategySelection (directionLevel, productCategory, productType, etc.)
     const result = await generateStructuredContent(brandId, strategySelection);
+    // Return full result including creativeDirectorBrief, reelBlueprint, tokenUsage
     res.json(result);
   } catch (err) {
     console.error("Generate content error:", err);

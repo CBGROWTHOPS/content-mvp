@@ -133,5 +133,72 @@
     "composition": ["Clean architecture", "Minimal staging"],
     "animation_limitations": ["No flashy transitions", "Static or subtle motion"],
     "typography": ["No exclamation marks", "Understated, architectural feel"]
+  },
+  "kit": {
+    "selectors": {
+      "productCatalog": {
+        "categories": [
+          {
+            "id": "blinds",
+            "label": "Blinds",
+            "types": [
+              { "id": "faux_wood", "label": "Faux Wood", "copyDirection": "Crisp slat texture, clean tilting demonstration, durability and moisture resistance for South Florida" },
+              { "id": "real_wood", "label": "Real Wood" },
+              { "id": "aluminum_mini", "label": "Aluminum Mini" },
+              { "id": "vertical", "label": "Vertical" },
+              { "id": "panel_track", "label": "Panel Track" },
+              { "id": "sheer_horizontal", "label": "Sheer Horizontal" },
+              { "id": "cordless", "label": "Cordless" },
+              { "id": "motorized_blinds", "label": "Motorized Blinds" }
+            ]
+          },
+          {
+            "id": "shades",
+            "label": "Shades",
+            "types": [
+              { "id": "roller", "label": "Roller" },
+              { "id": "solar", "label": "Solar", "copyDirection": "Glare reduction without killing the view, ocean skyline visibility, UV protection" },
+              { "id": "roman", "label": "Roman" },
+              { "id": "woven_wood", "label": "Woven Wood" },
+              { "id": "cellular", "label": "Cellular" },
+              { "id": "layered_zebra", "label": "Layered Zebra" },
+              { "id": "outdoor", "label": "Outdoor Shades" },
+              { "id": "motorized_shades", "label": "Motorized Shades" }
+            ]
+          },
+          {
+            "id": "shutters",
+            "label": "Shutters",
+            "types": [
+              { "id": "plantation", "label": "Plantation" },
+              { "id": "cafe", "label": "Cafe" },
+              { "id": "motorized_shutters", "label": "Motorized Shutters" }
+            ]
+          },
+          {
+            "id": "drapes",
+            "label": "Drapes",
+            "types": [
+              { "id": "sheer", "label": "Sheer" },
+              { "id": "blackout", "label": "Blackout" },
+              { "id": "motorized_drapes", "label": "Motorized Drapes" }
+            ]
+          },
+          {
+            "id": "motorized_smart",
+            "label": "Motorized and Smart",
+            "types": [
+              { "id": "somfy", "label": "Somfy" },
+              { "id": "lutron", "label": "Lutron" },
+              { "id": "bond_bridge", "label": "Bond Bridge" },
+              { "id": "alexa", "label": "Alexa" },
+              { "id": "google_home", "label": "Google Home" },
+              { "id": "apple_homekit", "label": "Apple HomeKit" },
+              { "id": "wall_switch_remote", "label": "Wall switch and remote" }
+            ]
+          }
+        ]
+      }
+    }
   }
 }

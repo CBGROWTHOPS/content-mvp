@@ -90,6 +90,19 @@ export interface BrandKit {
 
   /** Editor guardrails (exposure, composition, animation, typography) */
   guardrails?: Record<string, string[]>;
+
+  /** Product catalog for brand-aware selectors. Only brands with this defined show product tiles. */
+  kit?: {
+    selectors?: {
+      productCatalog?: {
+        categories: Array<{
+          id: string;
+          label: string;
+          types: Array<{ id: string; label: string; copyDirection?: string }>;
+        }>;
+      };
+    };
+  };
 }
 
 /** @deprecated Use BrandKit. Kept for backward compatibility. */
