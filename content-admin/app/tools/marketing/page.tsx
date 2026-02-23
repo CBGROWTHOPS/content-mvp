@@ -3,12 +3,16 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { BrandSelector } from "@/components/BrandSelector";
-import { CompactStrategyForm } from "@/components/CompactStrategyForm";
+import { StrategyPresetSelect } from "@/components/StrategyPresetSelect";
+import { ContextFields } from "@/components/ContextFields";
 import { MarketingOutputPanel } from "@/components/MarketingOutputPanel";
 import { fetchBrands, fetchBrand, fetchTokenEstimate, generateContent } from "@/lib/api";
 import type { BrandProfile } from "@/lib/api";
 import { saveToDrive } from "@/lib/saveToDrive";
-import { DEFAULT_STRATEGY, type StrategySelection } from "@/types/strategy";
+import { useLastGeneration } from "@/hooks/useLastGeneration";
+import { DEFAULT_STRATEGY } from "@/types/strategy";
+import { presetToStrategy, getPresetOptions } from "@/lib/presetUtils";
+import type { StrategySelection } from "@/types/strategy";
 import type { GenerateResponse } from "@/types/generate";
 
 export default function MarketingToolPage() {
@@ -29,6 +33,7 @@ export default function MarketingToolPage() {
     estimatedOutput: number;
     estimatedTotal: number;
   } | null>(null);
+  const { save, load } = useLastGeneration();
 
   useEffect(() => {
     if (!brandId) {
@@ -61,14 +66,44 @@ export default function MarketingToolPage() {
     });
   }, [brandId]);
 
+  useEffect(() => {
+    if (!brand) return;
+    const presets = getPresetOptions(brand);
+    const firstId = presets[0]?.id;
+    if (firstId) {
+      setSelection((s) => {
+        if (s.strategyPreset && presets.some((p) => p.id === s.strategyPreset)) return s;
+        const resolved = presetToStrategy(firstId, brand, {
+          strategyPreset: firstId,
+          directionLevel: "template",
+          contextTitle: s.contextTitle,
+          contextNotes: s.contextNotes,
+        });
+        return { ...DEFAULT_STRATEGY, ...resolved, strategyPreset: firstId, directionLevel: "template" as const, contextTitle: s.contextTitle, contextNotes: s.contextNotes };
+      });
+    }
+  }, [brand?.brand_key]);
+
   const handleGenerate = async () => {
     if (!brandId) return;
     setLoading(true);
     setError(null);
     const result = await generateContent(brandId, selection);
     setLoading(false);
-    if ("data" in result) setOutput(result.data);
-    else setError(result.error ?? "Failed to generate");
+    if ("data" in result) {
+      const data = result.data;
+      setOutput(data);
+      save(data);
+    } else {
+      setError(result.error ?? "Failed to generate");
+    }
+  };
+
+  const handleLoadLast = () => {
+    const last = load();
+    if (last) {
+      setOutput(last);
+    }
   };
 
   const handleSaveToDrive = async () => {
@@ -98,7 +133,7 @@ export default function MarketingToolPage() {
           Headlines, CTAs, captions, and variations for ads and social.
         </p>
         <div className="mt-3 rounded border border-zinc-800/50 bg-zinc-900/30 px-3 py-2 text-xs text-zinc-500">
-          <strong className="text-zinc-400">How it works:</strong> Pick brand and strategy, then Generate. Use Copy all or Save to Drive to export.
+          <strong className="text-zinc-400">How it works:</strong> Pick brand and preset, then Generate. Use Copy all or Save to Drive to export.
         </div>
       </div>
 
@@ -107,19 +142,13 @@ export default function MarketingToolPage() {
           <label className="mb-1 block text-sm font-medium text-zinc-400">Brand</label>
           <BrandSelector value={brandId} onChange={setBrandId} brands={brands} />
         </div>
-        <details className="group" open>
-          <summary className="cursor-pointer text-sm font-medium text-zinc-400 hover:text-zinc-300">
-            Strategy
-          </summary>
-          <div className="mt-3">
-          <CompactStrategyForm
-            selection={selection}
-            onChange={setSelection}
-            brand={brand}
-            showDirectionLevel={false}
-          />
-          </div>
-        </details>
+        <StrategyPresetSelect selection={selection} onChange={setSelection} brand={brand} showDirectionLevel={false} />
+        <ContextFields
+          contextTitle={selection.contextTitle ?? ""}
+          contextNotes={selection.contextNotes ?? ""}
+          onContextTitleChange={(v) => setSelection((s) => ({ ...s, contextTitle: v }))}
+          onContextNotesChange={(v) => setSelection((s) => ({ ...s, contextNotes: v }))}
+        />
         {tokenEstimate && (
           <p className="text-xs text-zinc-500">
             ~{tokenEstimate.estimatedTotal} tokens estimated ({tokenEstimate.estimatedInput} in / {tokenEstimate.estimatedOutput} out)
@@ -133,6 +162,13 @@ export default function MarketingToolPage() {
             className="rounded bg-zinc-100 px-4 py-2 text-sm font-medium text-zinc-900 hover:bg-zinc-200 disabled:opacity-50"
           >
             {loading ? "Generating…" : "Generate"}
+          </button>
+          <button
+            type="button"
+            onClick={handleLoadLast}
+            className="rounded border border-zinc-700 px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-800"
+          >
+            Load last generation
           </button>
           <button
             type="button"

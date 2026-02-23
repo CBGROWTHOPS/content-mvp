@@ -3,12 +3,16 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { BrandSelector } from "@/components/BrandSelector";
-import { CompactStrategyForm } from "@/components/CompactStrategyForm";
+import { StrategyPresetSelect } from "@/components/StrategyPresetSelect";
+import { ContextFields } from "@/components/ContextFields";
 import { CreativeDirectorBriefPanel } from "@/components/CreativeDirectorBriefPanel";
 import { fetchBrands, fetchBrand, fetchTokenEstimate, generateContent } from "@/lib/api";
 import type { BrandProfile } from "@/lib/api";
 import { saveToDrive } from "@/lib/saveToDrive";
-import { DEFAULT_STRATEGY, type StrategySelection } from "@/types/strategy";
+import { useLastGeneration } from "@/hooks/useLastGeneration";
+import { DEFAULT_STRATEGY } from "@/types/strategy";
+import { getPresetOptions, presetToStrategy } from "@/lib/presetUtils";
+import type { StrategySelection } from "@/types/strategy";
 import type { GenerateResponse } from "@/types/generate";
 
 export default function DirectorBriefToolPage() {
@@ -29,6 +33,7 @@ export default function DirectorBriefToolPage() {
     estimatedOutput: number;
     estimatedTotal: number;
   } | null>(null);
+  const { save, load } = useLastGeneration();
 
   useEffect(() => {
     if (!brandId) {
@@ -61,6 +66,24 @@ export default function DirectorBriefToolPage() {
     });
   }, [brandId]);
 
+  useEffect(() => {
+    if (!brand) return;
+    const presets = getPresetOptions(brand);
+    const firstId = presets[0]?.id;
+    if (firstId) {
+      setSelection((s) => {
+        if (s.strategyPreset && presets.some((p) => p.id === s.strategyPreset)) return s;
+        const resolved = presetToStrategy(firstId, brand, {
+          strategyPreset: firstId,
+          directionLevel: "director",
+          contextTitle: s.contextTitle,
+          contextNotes: s.contextNotes,
+        });
+        return { ...DEFAULT_STRATEGY, ...resolved, strategyPreset: firstId, directionLevel: "director" as const, contextTitle: s.contextTitle, contextNotes: s.contextNotes };
+      });
+    }
+  }, [brand?.brand_key]);
+
   const handleGenerate = async () => {
     if (!brandId) return;
     setLoading(true);
@@ -70,8 +93,18 @@ export default function DirectorBriefToolPage() {
       directionLevel: selection.directionLevel || "director",
     });
     setLoading(false);
-    if ("data" in result) setOutput(result.data);
-    else setError(result.error ?? "Failed to generate");
+    if ("data" in result) {
+      const data = result.data;
+      setOutput(data);
+      save(data);
+    } else {
+      setError(result.error ?? "Failed to generate");
+    }
+  };
+
+  const handleLoadLast = () => {
+    const last = load();
+    if (last) setOutput(last);
   };
 
   const handleSaveToDrive = async () => {
@@ -101,7 +134,7 @@ export default function DirectorBriefToolPage() {
           Creative direction: concept, art, camera, lighting, typography, sound.
         </p>
         <div className="mt-3 rounded border border-zinc-800/50 bg-zinc-900/30 px-3 py-2 text-xs text-zinc-500">
-          <strong className="text-zinc-400">How it works:</strong> Uses Director or Cinematic level. Generate, then expand sections to see details. Copy per section or Save to Drive.
+          <strong className="text-zinc-400">How it works:</strong> Pick brand and preset. Uses Director or Cinematic level (in Advanced). Generate, then Load last or Save to Drive.
         </div>
       </div>
 
@@ -110,25 +143,19 @@ export default function DirectorBriefToolPage() {
           <label className="mb-1 block text-sm font-medium text-zinc-400">Brand</label>
           <BrandSelector value={brandId} onChange={setBrandId} brands={brands} />
         </div>
-        <details className="group" open>
-          <summary className="cursor-pointer text-sm font-medium text-zinc-400 hover:text-zinc-300">
-            Strategy
-          </summary>
-          <div className="mt-3">
-          <CompactStrategyForm
-            selection={selection}
-            onChange={setSelection}
-            brand={brand}
-            showDirectionLevel={true}
-          />
-          </div>
-        </details>
+        <StrategyPresetSelect selection={selection} onChange={setSelection} brand={brand} showDirectionLevel={true} />
+        <ContextFields
+          contextTitle={selection.contextTitle ?? ""}
+          contextNotes={selection.contextNotes ?? ""}
+          onContextTitleChange={(v) => setSelection((s) => ({ ...s, contextTitle: v }))}
+          onContextNotesChange={(v) => setSelection((s) => ({ ...s, contextNotes: v }))}
+        />
         {tokenEstimate && (
           <p className="text-xs text-zinc-500">
             ~{tokenEstimate.estimatedTotal} tokens estimated ({tokenEstimate.estimatedInput} in / {tokenEstimate.estimatedOutput} out)
           </p>
         )}
-        <div className="flex gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
             onClick={handleGenerate}
@@ -136,6 +163,13 @@ export default function DirectorBriefToolPage() {
             className="rounded bg-zinc-100 px-4 py-2 text-sm font-medium text-zinc-900 hover:bg-zinc-200 disabled:opacity-50"
           >
             {loading ? "Generating…" : "Generate"}
+          </button>
+          <button
+            type="button"
+            onClick={handleLoadLast}
+            className="rounded border border-zinc-700 px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-800"
+          >
+            Load last generation
           </button>
           <button
             type="button"

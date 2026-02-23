@@ -57,11 +57,19 @@ export interface ApiModel {
   replicate_page_url: string;
 }
 
+export interface StrategyPresetOption {
+  id: string;
+  label: string;
+  strategy: Record<string, unknown>;
+}
+
 export interface BrandProfile {
   brand_key: string;
   positioning?: string;
   collections?: Array<{ key: string; label: string; tagline?: string }>;
   primary_cta?: string;
+  /** Strategy presets - from brand kit. Use DEFAULT_STRATEGY_PRESETS when empty. */
+  strategy_presets?: StrategyPresetOption[];
   /** Product catalog for brand-aware selectors */
   kit?: {
     selectors?: {

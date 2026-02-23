@@ -1,3 +1,9 @@
+export interface StrategyPresetOption {
+  id: string;
+  label: string;
+  strategy: Partial<StrategySelection>;
+}
+
 export interface StrategySelection {
   campaignObjective: string;
   audienceContext: string;
@@ -8,6 +14,11 @@ export interface StrategySelection {
   directionLevel?: "template" | "director" | "cinematic";
   productCategory?: string;
   productType?: string;
+  /** Preset id - when set, strategy can be derived from preset */
+  strategyPreset?: string;
+  /** Optional context for generation (shared across Marketing, Director Brief, Storyboard) */
+  contextTitle?: string;
+  contextNotes?: string;
   /** Advanced: duration in seconds, e.g. 6, 10, 15 */
   duration?: number;
   /** Advanced: number of hook variants */
@@ -94,3 +105,12 @@ export interface ProductCatalogCategory {
   label: string;
   types: Array<{ id: string; label: string; copyDirection?: string }>;
 }
+
+/** Fallback presets when brand has none. Architect so these come from brand kit API later. */
+export const DEFAULT_STRATEGY_PRESETS: StrategyPresetOption[] = [
+  { id: "lead_gen_high_rise", label: "Lead Gen High Rise", strategy: { campaignObjective: "lead_generation", audienceContext: "condo_owner", propertyType: "high_rise", visualEnergy: "calm", hookFramework: "contrast", platformFormat: "reel_kit" } },
+  { id: "awareness_modern_build", label: "Awareness Modern Build", strategy: { campaignObjective: "awareness", audienceContext: "new_build", propertyType: "modern_build", visualEnergy: "editorial", hookFramework: "concept", platformFormat: "reel_kit" } },
+  { id: "motorized_upgrade", label: "Motorized Upgrade", strategy: { campaignObjective: "lead_generation", audienceContext: "affluent_homeowner", propertyType: "single_family", visualEnergy: "controlled", hookFramework: "motorized_demo", platformFormat: "reel_kit" } },
+  { id: "builder_grade_upgrade", label: "Builder Grade Upgrade", strategy: { campaignObjective: "lead_generation", audienceContext: "builder_grade_upgrade", propertyType: "single_family", visualEnergy: "calm", hookFramework: "contrast", platformFormat: "reel_kit" } },
+  { id: "waterfront_luxury", label: "Waterfront Luxury", strategy: { campaignObjective: "lead_generation", audienceContext: "waterfront", propertyType: "single_family", visualEnergy: "aspirational", hookFramework: "concept", platformFormat: "reel_kit" } },
+];

@@ -2,9 +2,12 @@
 
 import { useState } from "react";
 import type { ReelBlueprint } from "@/types/generate";
+import type { StrategySelection } from "@/types/strategy";
+import { VISUAL_ENERGY_OPTIONS, HOOK_FRAMEWORK_OPTIONS } from "@/types/strategy";
 
 interface ReelBlueprintPanelProps {
   data: ReelBlueprint | null;
+  strategySelection?: StrategySelection | null;
   onCopy?: (text: string) => void;
 }
 
@@ -26,7 +29,11 @@ function formatTime(seconds: number): string {
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
-export function ReelBlueprintPanel({ data, onCopy }: ReelBlueprintPanelProps) {
+function labelFor(id: string, options: { id: string; label: string }[]): string {
+  return options.find((o) => o.id === id)?.label ?? id.replace(/_/g, " ");
+}
+
+export function ReelBlueprintPanel({ data, strategySelection, onCopy }: ReelBlueprintPanelProps) {
   const [copied, setCopied] = useState<string | null>(null);
 
   const handleCopy = (text: string, key: string) => {
@@ -46,6 +53,8 @@ export function ReelBlueprintPanel({ data, onCopy }: ReelBlueprintPanelProps) {
   }
 
   const { format, durationSeconds, fps, music, colorGrade, shots } = data;
+  const tone = strategySelection ? labelFor(strategySelection.visualEnergy, VISUAL_ENERGY_OPTIONS) : null;
+  const style = strategySelection ? labelFor(strategySelection.hookFramework, HOOK_FRAMEWORK_OPTIONS) : null;
 
   const fullText = [
     `Format: ${format} · ${durationSeconds}s @ ${fps}fps`,
@@ -64,9 +73,11 @@ export function ReelBlueprintPanel({ data, onCopy }: ReelBlueprintPanelProps) {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-xs text-zinc-500">
-          {format} · {durationSeconds}s @ {fps}fps
+          Format {format} · Duration {durationSeconds}s
+          {tone && ` · Tone ${tone}`}
+          {style && ` · Style ${style}`}
           {music && ` · ${music}`}
         </p>
         <CopyButton

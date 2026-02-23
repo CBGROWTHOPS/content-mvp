@@ -129,6 +129,7 @@ export interface TokenUsage {
 }
 
 export interface GenerateResponse {
+  generationId?: string;
   marketingOutput: MarketingOutput;
   /** Present for Template level; omitted for Director/Cinematic */
   creativeBrief?: CreativeBrief | null;

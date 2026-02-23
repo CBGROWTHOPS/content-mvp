@@ -14,7 +14,7 @@ router.get("/generate-content/estimate", (req: Request, res: Response) => {
     const brandId = req.query.brandId as string | undefined;
     const strategyParam = req.query.strategySelection;
     const raw = (typeof strategyParam === "string"
-      ? (JSON.parse(strategyParam) as Record<string, unknown>)
+      ? (JSON.parse(strategyParam as string) as Record<string, unknown>)
       : strategyParam) as Record<string, unknown> | undefined;
     if (!brandId) {
       res.status(400).json({ error: "brandId required" });
@@ -73,8 +73,9 @@ router.post("/generate-content", async (req: Request, res: Response) => {
     }
     // Pass full strategySelection (directionLevel, productCategory, productType, etc.)
     const result = await generateStructuredContent(brandId, strategySelection);
-    // Return full result including creativeDirectorBrief, reelBlueprint, tokenUsage
-    res.json(result);
+    const generationId = crypto.randomUUID();
+    // Return full result including generationId, creativeDirectorBrief, reelBlueprint, tokenUsage
+    res.json({ ...result, generationId });
   } catch (err) {
     console.error("Generate content error:", err);
     const msg = err instanceof Error ? err.message : "Internal server error";

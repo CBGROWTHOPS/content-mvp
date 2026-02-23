@@ -219,6 +219,13 @@ function buildStrategySection(strategy: StrategySelection): string[] {
   if (strategy.productType) {
     lines.push(`Product type: ${strategy.productType}`);
   }
+  const ctx = strategy as { contextTitle?: string; contextNotes?: string };
+  if (ctx.contextTitle) {
+    lines.push(`Context title: ${ctx.contextTitle}`);
+  }
+  if (ctx.contextNotes) {
+    lines.push(`Context notes: ${ctx.contextNotes}`);
+  }
   return lines;
 }
 

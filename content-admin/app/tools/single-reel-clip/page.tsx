@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { BrandSelector } from "@/components/BrandSelector";
 import { createJob, fetchBrands, fetchModels } from "@/lib/api";
+import { useLastGeneration } from "@/hooks/useLastGeneration";
 import type { ReelKitHookType } from "@/types/job";
 
 const HOOKS: { value: ReelKitHookType; label: string }[] = [
@@ -13,14 +14,19 @@ const HOOKS: { value: ReelKitHookType; label: string }[] = [
   { value: "motorized_demo", label: "Motorized demo" },
 ];
 
+type GenerationOption = "none" | "last" | "paste";
+
 export default function SingleReelClipToolPage() {
   const router = useRouter();
+  const { lastId } = useLastGeneration();
   const [brandId, setBrandId] = useState("");
   const [brands, setBrands] = useState<Array<{ key: string; display_name: string }>>([]);
   const [hookType, setHookType] = useState<ReelKitHookType>("contrast");
   const [concept, setConcept] = useState("");
   const [modelKey, setModelKey] = useState("");
   const [models, setModels] = useState<import("@/lib/api").ApiModel[]>([]);
+  const [useGeneration, setUseGeneration] = useState<GenerationOption>("none");
+  const [pasteId, setPasteId] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -56,6 +62,8 @@ export default function SingleReelClipToolPage() {
       variables: { concept: concept || "Design Your Light" },
     };
     if (modelKey) payload.model_key = modelKey;
+    const genId = useGeneration === "last" ? lastId ?? undefined : useGeneration === "paste" ? pasteId || undefined : undefined;
+    if (genId) payload.generation_id = genId;
     const result = await createJob(payload);
     setLoading(false);
     if ("data" in result) {
@@ -108,6 +116,27 @@ export default function SingleReelClipToolPage() {
             </select>
           </div>
         )}
+        <div>
+          <label className="mb-1 block text-sm font-medium text-zinc-400">Use generation</label>
+          <select
+            value={useGeneration}
+            onChange={(e) => setUseGeneration(e.target.value as GenerationOption)}
+            className="w-full rounded border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 focus:border-zinc-600 focus:outline-none"
+          >
+            <option value="none">None</option>
+            <option value="last" disabled={!lastId}>Last generation</option>
+            <option value="paste">Paste ID</option>
+          </select>
+          {useGeneration === "paste" && (
+            <input
+              type="text"
+              value={pasteId}
+              onChange={(e) => setPasteId(e.target.value)}
+              placeholder="Generation ID"
+              className="mt-2 w-full rounded border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 placeholder-zinc-500 focus:border-zinc-600 focus:outline-none"
+            />
+          )}
+        </div>
         <div>
           <label className="mb-1 block text-sm font-medium text-zinc-400">Hook type</label>
           <select

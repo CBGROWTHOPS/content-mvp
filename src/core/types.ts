@@ -88,6 +88,9 @@ export interface BrandKit {
   collections?: Array<{ key: string; label: string; tagline?: string }>;
   allowed_formats?: string[];
 
+  /** Strategy presets - id, label, mapped strategy. Fallback when brand has none. */
+  strategy_presets?: Array<{ id: string; label: string; strategy: Record<string, unknown> }>;
+
   /** Editor guardrails (exposure, composition, animation, typography) */
   guardrails?: Record<string, string[]>;
 

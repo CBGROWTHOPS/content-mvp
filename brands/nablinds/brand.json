@@ -128,6 +128,13 @@
     { "key": "smart", "label": "SMART", "tagline": "Motorized" }
   ],
   "allowed_formats": ["image", "image_kit", "reel", "reel_kit", "wide_video_kit"],
+  "strategy_presets": [
+    { "id": "lead_gen_high_rise", "label": "Lead Gen High Rise", "strategy": { "campaignObjective": "lead_generation", "audienceContext": "condo_owner", "propertyType": "high_rise", "visualEnergy": "calm", "hookFramework": "contrast", "platformFormat": "reel_kit" } },
+    { "id": "awareness_modern_build", "label": "Awareness Modern Build", "strategy": { "campaignObjective": "awareness", "audienceContext": "new_build", "propertyType": "modern_build", "visualEnergy": "editorial", "hookFramework": "concept", "platformFormat": "reel_kit" } },
+    { "id": "motorized_upgrade", "label": "Motorized Upgrade", "strategy": { "campaignObjective": "lead_generation", "audienceContext": "affluent_homeowner", "propertyType": "single_family", "visualEnergy": "controlled", "hookFramework": "motorized_demo", "platformFormat": "reel_kit" } },
+    { "id": "builder_grade_upgrade", "label": "Builder Grade Upgrade", "strategy": { "campaignObjective": "lead_generation", "audienceContext": "builder_grade_upgrade", "propertyType": "single_family", "visualEnergy": "calm", "hookFramework": "contrast", "platformFormat": "reel_kit" } },
+    { "id": "waterfront_luxury", "label": "Waterfront Luxury", "strategy": { "campaignObjective": "lead_generation", "audienceContext": "waterfront", "propertyType": "single_family", "visualEnergy": "aspirational", "hookFramework": "concept", "platformFormat": "reel_kit" } }
+  ],
   "guardrails": {
     "exposure_control": ["No over-exposed windows", "Natural Florida light only"],
     "composition": ["Clean architecture", "Minimal staging"],
