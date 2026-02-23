@@ -17,43 +17,42 @@ export default function DocsPage() {
           At a Glance — What You Can Do
         </h2>
         <p className="mb-4 text-zinc-300">
-          Create AI-generated video and image content. Fill out a form, submit, and
-          the system queues your job, runs it through Replicate, and stores the
-          output for preview and download.
+          Two flows: (1) Content Console — strategy tiles for copy and creative brief;
+          (2) Asset jobs — video/image generation via Replicate, stored in Supabase.
         </p>
         <ul className="mb-4 list-disc space-y-2 pl-6 text-zinc-300">
           <li>
-            <strong>New Job</strong> — Choose brand, format (Reel/Image), hook type
-            (Contrast, Question, etc.), length, and variables (location, product,
-            CTA). Submit and get a job ID.
+            <strong>Content Console</strong> — Select brand, then choose strategy
+            tiles (Campaign Objective, Audience, Property Type, Visual Energy, Hook,
+            Platform Format). Copy and creative brief auto-generate. Use Copy buttons
+            to grab output. Randomize/Reset for quick exploration.
           </li>
           <li>
-            <strong>Jobs list</strong> — See all jobs with status (Queued, Processing,
-            Completed, Failed). Click to view details.
+            <strong>New Job</strong> — Create asset jobs: brand, format (Reel, Image,
+            Image Kit, Reel Kit, Wide Video Kit), hook type, model override, variables.
+            Submit and get a job ID.
           </li>
           <li>
-            <strong>Job detail</strong> — View full metadata, status, and any error
-            messages. When completed, preview or download the video/image.
+            <strong>Jobs list</strong> — All jobs with status (Queued, Processing,
+            Completed, Failed). Click for details.
           </li>
           <li>
-            <strong>Regenerate</strong> — Create a new job with the same settings
-            (e.g. after a failure or to try again).
+            <strong>Job detail</strong> — Metadata, status, error messages. Preview
+            or download completed video/image. Regenerate with same settings.
           </li>
         </ul>
         <p className="mb-2 text-sm text-zinc-400">
-          <strong>Models:</strong> Choose from curated Replicate models (e.g.{" "}
-          <code className="rounded bg-zinc-800 px-1.5 py-0.5">minimax-video-01</code>,{" "}
-          <code className="rounded bg-zinc-800 px-1.5 py-0.5">flux-schnell</code>) or use the default.
-          Outputs are stored in Supabase and viewable in the UI.
+          <strong>Brand Kits:</strong> File-based per brand (e.g. NA Blinds).
+          Define positioning, target ICP, voice, visuals, scene requirements, CTAs,
+          guardrails. Console and jobs use these constraints.
+        </p>
+        <p className="mb-2 text-sm text-zinc-400">
+          <strong>Models:</strong> Replicate models (minimax-video-01, flux-schnell,
+          flux-dev, sdxl, stable-video-diffusion). Default chosen by format.
         </p>
         <p className="text-sm text-zinc-500">
-          Jobs process asynchronously. Status moves from Queued → Processing →
-          Completed (or Failed). Check back or refresh the job page to see updates.
-        </p>
-        <p className="mt-3 text-xs text-zinc-500">
-          <strong>Note:</strong> Only the Contrast hook template is fully built
-          today. Video length is capped at 6 seconds for Replicate. Other formats
-          and hook types use defaults.
+          Jobs process asynchronously (Queued → Processing → Completed/Failed).
+          Console copy/brief is synchronous via OpenAI.
         </p>
       </section>
 
@@ -66,10 +65,11 @@ export default function DocsPage() {
       <section>
         <h2 className="text-lg font-semibold text-zinc-200">What It Is</h2>
         <p>
-          Content MVP is an automated content generation system. You submit
-          structured jobs (brand, format, hook type, variables), they get queued
-          via BullMQ + Redis, and a worker generates assets (video/image) via
-          Replicate. Outputs are stored in Supabase (Postgres + Storage).
+          Content MVP is a Visual Content Operating System. (1) Content Console:
+          strategy tiles + Brand Kit → OpenAI → marketing copy + creative brief.
+          (2) Asset jobs: structured jobs (brand, format, hook, variables) queued
+          via BullMQ + Redis; worker generates video/image via Replicate. Outputs
+          stored in Supabase (Postgres + Storage).
         </p>
       </section>
 
@@ -78,108 +78,59 @@ export default function DocsPage() {
         <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-4 font-mono text-sm text-zinc-300">
           <pre className="whitespace-pre-wrap">
 {`┌─────────────────────────────────────────────────────────────────┐
-│  FRONTEND (Vercel)                                                │
-│  content-admin-nine.vercel.app                                    │
-│  Next.js app in content-admin/                                    │
+│  FRONTEND (Next.js)                                              │
+│  /console, /new, /jobs, /docs                                    │
 └───────────────────────────────┬───────────────────────────────────┘
                                 │ NEXT_PUBLIC_API_URL
                                 ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│  BACKEND (Railway)                                               │
-│  web-production-4f46b.up.railway.app                             │
-│  Express API: POST /generate, GET /jobs, GET /jobs/:id           │
+│  BACKEND (Express)                                               │
+│  /generate-content, /generate, /brands, /jobs, /models           │
 └───────────────────────────────┬───────────────────────────────────┘
                                 │
-          ┌─────────────────────┼─────────────────────┐
-          ▼                     ▼                     ▼
-   ┌──────────────┐    ┌──────────────┐    ┌──────────────┐
-   │ Redis (Queue)│    │  Supabase    │    │  Replicate   │
-   │ BullMQ jobs  │    │  Postgres +  │    │  AI models   │
-   └──────────────┘    │  Storage     │    └──────────────┘
-                       └──────────────┘
-          ▲
-          │
-   ┌──────────────┐
-   │   Worker     │  Railway worker process: dequeue → Replicate → store
-   │  (Railway)   │
-   └──────────────┘`}
+     ┌──────────────────────────┼──────────────────────────┐
+     ▼                          ▼                          ▼
+┌──────────┐            ┌──────────────┐            ┌──────────────┐
+│ OpenAI   │            │ Redis/BullMQ │            │  Supabase +  │
+│ copy+    │            │ + Replicate  │            │  Replicate   │
+│ brief    │            │ (asset jobs) │            │  (storage)   │
+└──────────┘            └──────────────┘            └──────────────┘
+     ▲                          ▲
+     │                          │ Worker: dequeue → Replicate → store
+     │ Brand Kits (files)       │
+     └──────────────────────────┘`}
           </pre>
         </div>
       </section>
 
       <section>
         <h2 className="text-lg font-semibold text-zinc-200">How It Works</h2>
-        <ol className="list-decimal space-y-2 pl-6 text-zinc-300">
-          <li>
-            <strong>Create a job</strong> — In Content Admin, use &quot;New Job&quot; to submit
-            a job (brand, format, hook type, variables). The UI calls POST
-            /generate on the Railway API.
-          </li>
-          <li>
-            <strong>Queue</strong> — The API validates the payload, inserts a row in
-            Supabase <code className="rounded bg-zinc-800 px-1.5 py-0.5 text-xs">jobs</code>,
-            and adds the job to BullMQ. It returns{" "}
-            <code className="rounded bg-zinc-800 px-1.5 py-0.5 text-xs">{"{ id, status: \"queued\" }"}</code>.
-          </li>
-          <li>
-            <strong>Worker</strong> — A separate worker process on Railway dequeues
-            jobs, builds prompts from templates, calls Replicate, and stores outputs
-            in Supabase Storage. It updates job status and writes to{" "}
-            <code className="rounded bg-zinc-800 px-1.5 py-0.5 text-xs">assets</code>.
-          </li>
-          <li>
-            <strong>View results</strong> — The Jobs list and Job detail pages fetch
-            from GET /jobs and GET /jobs/:id. You can preview, download, or
-            regenerate.
-          </li>
+        <h3 className="mt-3 text-base font-medium text-zinc-300">Content Console</h3>
+        <ol className="list-decimal space-y-1 pl-6 text-zinc-300">
+          <li>Select brand and strategy tiles. Changes debounce (500ms).</li>
+          <li>UI calls POST /generate-content with brandId and strategySelection.</li>
+          <li>Backend loads Brand Kit, merges with strategy, calls OpenAI. Returns marketingOutput + creativeBrief.</li>
+          <li>Copy buttons copy sections to clipboard.</li>
+        </ol>
+        <h3 className="mt-4 text-base font-medium text-zinc-300">Asset Jobs</h3>
+        <ol className="list-decimal space-y-1 pl-6 text-zinc-300">
+          <li>New Job form: brand, format, hook, model, variables → POST /generate.</li>
+          <li>API validates, inserts in Supabase <code className="rounded bg-zinc-800 px-1.5 py-0.5 text-xs">jobs</code>, enqueues BullMQ. Returns <code className="rounded bg-zinc-800 px-1.5 py-0.5 text-xs">{"{ id, status: \"queued\" }"}</code>.</li>
+          <li>Worker dequeues, builds prompts, calls Replicate, stores in Supabase, updates <code className="rounded bg-zinc-800 px-1.5 py-0.5 text-xs">assets</code>.</li>
+          <li>Jobs/Job detail: GET /jobs, GET /jobs/:id. Preview, download, regenerate.</li>
         </ol>
       </section>
 
       <section>
         <h2 className="text-lg font-semibold text-zinc-200">Deployment</h2>
-        <h3 className="mt-4 text-base font-medium text-zinc-300">Frontend (Vercel)</h3>
-        <ul className="list-disc space-y-1 pl-6 text-zinc-300">
-          <li>
-            <strong>Project:</strong> content-admin (single project, no duplicate)
-          </li>
-          <li>
-            <strong>Repo:</strong> CBGROWTHOPS/content-mvp, Root Directory:{" "}
-            <code className="rounded bg-zinc-800 px-1.5 py-0.5 text-xs">content-admin</code>
-          </li>
-          <li>
-            <strong>Env:</strong>{" "}
-            <code className="rounded bg-zinc-800 px-1.5 py-0.5 text-xs">NEXT_PUBLIC_API_URL</code>{" "}
-            = https://web-production-4f46b.up.railway.app
-          </li>
-          <li>Pushes to main trigger automatic deploys</li>
-        </ul>
-
-        <h3 className="mt-4 text-base font-medium text-zinc-300">Backend (Railway)</h3>
-        <ul className="list-disc space-y-1 pl-6 text-zinc-300">
-          <li>
-            <strong>Web service:</strong> runs <code className="rounded bg-zinc-800 px-1.5 py-0.5 text-xs">npm run start</code> (Express API)
-          </li>
-          <li>
-            <strong>Worker service:</strong> runs <code className="rounded bg-zinc-800 px-1.5 py-0.5 text-xs">npm run worker</code> (BullMQ worker)
-          </li>
-          <li>
-            <strong>Deploy from repo root</strong> — Backend lives in{" "}
-            <code className="rounded bg-zinc-800 px-1.5 py-0.5 text-xs">src/api/</code>,{" "}
-            <code className="rounded bg-zinc-800 px-1.5 py-0.5 text-xs">src/worker/</code>, etc.
-          </li>
-          <li>
-            <strong>Env vars:</strong> SUPABASE_URL, SUPABASE_SERVICE_KEY,
-            REDIS_*, REPLICATE_API_TOKEN
-          </li>
-        </ul>
-      </section>
-
-      <section>
-        <h2 className="text-lg font-semibold text-zinc-200">CORS</h2>
         <p className="text-zinc-300">
-          The Railway API allows requests from content-admin-nine.vercel.app,
-          localhost:3000, and Vercel preview URLs. OPTIONS preflight is handled
-          automatically.
+          Frontend: deploy <code className="rounded bg-zinc-800 px-1.5 py-0.5 text-xs">content-admin/</code> (e.g. Vercel).
+          Set <code className="rounded bg-zinc-800 px-1.5 py-0.5 text-xs">NEXT_PUBLIC_API_URL</code> to your backend.
+        </p>
+        <p className="mt-2 text-zinc-300">
+          Backend: two services — API (<code className="rounded bg-zinc-800 px-1.5 py-0.5 text-xs">npm run start</code>),
+          Worker (<code className="rounded bg-zinc-800 px-1.5 py-0.5 text-xs">npm run worker</code>). Set env vars for
+          Supabase, Redis, Replicate, OpenAI. Configure CORS for your frontend origin.
         </p>
       </section>
 
@@ -188,13 +139,18 @@ export default function DocsPage() {
         <dl className="space-y-3 text-zinc-300">
           <div>
             <dt className="font-medium text-zinc-200">
+              Content Console: &quot;OPENAI_API_KEY is not set&quot;
+            </dt>
+            <dd>
+              Add <code className="rounded bg-zinc-800 px-1.5 py-0.5 text-xs">OPENAI_API_KEY</code> to the backend .env.
+            </dd>
+          </div>
+          <div>
+            <dt className="font-medium text-zinc-200">
               &quot;Failed to fetch jobs&quot;
             </dt>
             <dd>
-              Run migration 002 for the <code className="rounded bg-zinc-800 px-1.5 py-0.5 text-xs">payload</code> column:{" "}
-              <code className="block rounded bg-zinc-900 p-2 text-xs">
-                SUPABASE_DB_PASSWORD=... npm run db:migrate
-              </code>
+              Ensure Supabase env vars are set, then run <code className="rounded bg-zinc-800 px-1.5 py-0.5 text-xs">npm run db:migrate</code>.
             </dd>
           </div>
           <div>
@@ -213,41 +169,6 @@ export default function DocsPage() {
         </dl>
       </section>
 
-      <section>
-        <h2 className="text-lg font-semibold text-zinc-200">Links</h2>
-        <ul className="space-y-2 text-zinc-300">
-          <li>
-            <a
-              href="https://content-admin-nine.vercel.app"
-              className="text-zinc-400 underline hover:text-white"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Content Admin (this app)
-            </a>
-          </li>
-          <li>
-            <a
-              href="https://web-production-4f46b.up.railway.app/health"
-              className="text-zinc-400 underline hover:text-white"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              API health check
-            </a>
-          </li>
-          <li>
-            <a
-              href="https://github.com/CBGROWTHOPS/content-mvp"
-              className="text-zinc-400 underline hover:text-white"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              GitHub repo
-            </a>
-          </li>
-        </ul>
-      </section>
 
       <p className="mt-8 text-sm text-zinc-500">
         <Link href="/jobs" className="text-zinc-400 hover:text-white">

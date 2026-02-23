@@ -1,24 +1,24 @@
 # Content MVP
 
-Automated content generation system: structured jobs → Replicate → storage.
+Visual Content Operating System: strategy-driven content generation, Brand Kits, and asset production.
+
+## Capabilities
+
+- **Content Console** — Strategy tiles (objective, audience, property type, visual energy, hook, format) → AI-generated marketing copy + creative production brief. Returns structured JSON; no free typing.
+- **Asset Jobs** — Queue video/image generation via Replicate (Minimax, Flux, SDXL). Jobs run async; outputs stored in Supabase.
+- **Brand Kits** — File-based brand profiles per brand. Each kit defines positioning, target ICP, voice, visuals, scene requirements, CTAs, and guardrails. NA Blinds included.
+- **Formats** — Reel, Image, Image Kit (4:5), Reel Kit (9:16), Wide Video Kit (16:9).
 
 ## Setup
 
-Supabase (Conversion Bridge) is configured: migration run, `content-outputs` bucket created. `.env` has Supabase credentials.
+Supabase: run migration, create `content-outputs` bucket if needed.
 
-**Still needed:** Add to `.env`:
-- `UPSTASH_REDIS_URL` or `REDIS_URL` (from Upstash or Railway Redis)
-- `REPLICATE_API_TOKEN` (from replicate.com)
+**Add to `.env`** (see .env.example):
+- Redis URL (BullMQ queue)
+- Replicate token (asset generation)
+- OpenAI key (Content Console)
 
-Optional: `npm run db:migrate` (if schema changes), `npm run db:create-bucket` (if bucket missing).
-
-## Vercel
-
-Live: **https://content-mvp-chris-projects-ebee1a4e.vercel.app** (or check [vercel.com](https://vercel.com) dashboard)
-
-Add env vars in Vercel: `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`, `UPSTASH_REDIS_URL`, `REPLICATE_API_TOKEN`.
-
-Note: The BullMQ worker does not run on Vercel (serverless). Deploy the worker separately (e.g. Railway) for full pipeline.
+Optional: `npm run db:migrate`, `npm run db:create-bucket`.
 
 ## Run
 
@@ -30,27 +30,43 @@ npm run dev:worker   # Worker (separate terminal)
 
 ## API
 
-**POST /generate**
+**GET /health** — Health check
 
+**GET /models** — List models (format support, cost, descriptions)
+
+**GET /brands** — List brand keys and display names
+
+**GET /brands/:key** — Full BrandKit JSON
+
+**POST /generate-content** — Strategy → structured copy + brief (synchronous)
 ```json
 {
-  "brand": "NA Blinds",
-  "format": "reel",
-  "length_seconds": 6,
-  "objective": "lead_generation",
-  "hook_type": "contrast",
-  "scene_structure": 2,
-  "model_key": "minimax-video-01",
-  "variables": {
-    "location": "South Florida luxury living room",
-    "product": "motorized shades"
+  "brandId": "nablinds",
+  "strategySelection": {
+    "campaignObjective": "lead_generation",
+    "audienceContext": "affluent_homeowner",
+    "propertyType": "single_family",
+    "visualEnergy": "calm",
+    "hookFramework": "contrast",
+    "platformFormat": "reel_kit"
   }
 }
 ```
+Returns `{ marketingOutput, creativeBrief }`.
 
+**POST /generate** — Queue asset job (async)
+```json
+{
+  "brand_key": "nablinds",
+  "format": "reel_kit",
+  "length_seconds": 6,
+  "objective": "lead_generation",
+  "hook_type": "contrast",
+  "variables": { "concept": "Design Your Light" }
+}
+```
 Returns `{ id, status: "queued" }`.
 
 ## Deploy (Railway)
 
-- Two services: one for `npm run start` (API), one for `npm run worker`.
-- Or use Procfile with `web` and `worker` processes if supported.
+Two services: `npm run start` (API), `npm run worker` (BullMQ).

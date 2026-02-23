@@ -125,6 +125,40 @@ export async function fetchModels(): Promise<
   }
 }
 
+export async function generateContent(
+  brandId: string,
+  strategySelection: {
+    campaignObjective: string;
+    audienceContext: string;
+    propertyType: string;
+    visualEnergy: string;
+    hookFramework: string;
+    platformFormat: string;
+  }
+): Promise<{ data: import("@/types/generate").GenerateResponse } | { error: string }> {
+  try {
+    const res = await fetch(`${getBaseUrl()}/generate-content`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ brandId, strategySelection }),
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const msg =
+        (json as { error?: string }).error ??
+        (json as { details?: unknown }).details
+          ? JSON.stringify((json as { details?: unknown }).details)
+          : res.statusText;
+      return { error: msg };
+    }
+    return { data: json as import("@/types/generate").GenerateResponse };
+  } catch (e) {
+    return {
+      error: e instanceof Error ? e.message : "Failed to generate content",
+    };
+  }
+}
+
 export async function createJob(
   payload: object
 ): Promise<{ data: { id: string; status: string } } | { error: string }> {

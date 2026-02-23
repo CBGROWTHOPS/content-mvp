@@ -1,8 +1,6 @@
 # Content Admin
 
-Minimal internal dashboard for the Content Generation API. Connects to the backend on Railway.
-
-**Live:** https://content-admin-nine.vercel.app
+Internal dashboard for the Content MVP API: Content Console and asset job management.
 
 ## Setup
 
@@ -11,7 +9,7 @@ npm install
 cp .env.example .env.local
 ```
 
-Set `NEXT_PUBLIC_API_URL` to your Railway backend URL (e.g. `https://web-production-4f46b.up.railway.app`).
+Set `NEXT_PUBLIC_API_URL` to your backend API URL.
 
 ## Run
 
@@ -23,14 +21,18 @@ Open [http://localhost:3000](http://localhost:3000).
 
 ## Pages
 
-- **/new** – Create a new job (form)
-- **/jobs** – List all jobs
-- **/jobs/[id]** – Job details, output preview, download, regenerate
+- **/console** — Content Console: strategy tiles, brand selector, auto-generated marketing output + creative brief. Copy buttons. Randomize/Reset.
+- **/new** — Create asset job (form: brand, format, hook, model override, variables)
+- **/jobs** — List all jobs
+- **/jobs/[id]** — Job details, output preview, download, regenerate
+- **/docs** — Documentation
 
-## Backend
+## Backend API
 
-Requires the Content MVP API with:
-
-- `POST /generate` – Queue a job
-- `GET /jobs` – List jobs
-- `GET /jobs/:id` – Job details + assets
+- `GET /brands` — List brands
+- `GET /brands/:key` — Full BrandKit
+- `POST /generate-content` — Strategy → copy + brief (Content Console)
+- `POST /generate` — Queue asset job
+- `GET /models` — List models
+- `GET /jobs` — List jobs
+- `GET /jobs/:id` — Job details + assets

@@ -3,11 +3,28 @@ import { contentQueue } from "../../lib/queue.js";
 import { supabase } from "../../lib/supabase.js";
 import { selectModel, getModelsForApi } from "../../lib/models.js";
 import { validateJobBody } from "../middleware/validate.js";
+import { generateStructuredContent } from "../../lib/llm.js";
 
 const router = Router();
 
 router.get("/models", (_req: Request, res: Response) => {
   res.json(getModelsForApi());
+});
+
+router.post("/generate-content", async (req: Request, res: Response) => {
+  try {
+    const { brandId, strategySelection } = req.body;
+    if (!brandId || !strategySelection) {
+      res.status(400).json({ error: "brandId and strategySelection required" });
+      return;
+    }
+    const result = await generateStructuredContent(brandId, strategySelection);
+    res.json(result);
+  } catch (err) {
+    console.error("Generate content error:", err);
+    const msg = err instanceof Error ? err.message : "Internal server error";
+    res.status(500).json({ error: msg });
+  }
 });
 
 router.post("/generate", validateJobBody, async (req: Request, res: Response) => {

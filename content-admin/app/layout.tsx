@@ -25,6 +25,12 @@ export default function RootLayout({
             </a>
             <nav className="flex gap-4">
               <a
+                href="/console"
+                className="text-sm text-zinc-400 hover:text-zinc-100"
+              >
+                Content Console
+              </a>
+              <a
                 href="/jobs"
                 className="text-sm text-zinc-400 hover:text-zinc-100"
               >
