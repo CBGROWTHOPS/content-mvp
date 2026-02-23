@@ -52,6 +52,7 @@ export interface JobListItem {
   hook_type: string | null;
   status: JobStatus;
   created_at: string;
+  primary_asset?: { url: string; type: string } | null;
 }
 
 export interface Asset {

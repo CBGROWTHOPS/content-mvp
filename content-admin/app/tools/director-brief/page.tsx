@@ -5,7 +5,7 @@ import Link from "next/link";
 import { BrandSelector } from "@/components/BrandSelector";
 import { CompactStrategyForm } from "@/components/CompactStrategyForm";
 import { CreativeDirectorBriefPanel } from "@/components/CreativeDirectorBriefPanel";
-import { fetchBrands, fetchBrand, generateContent } from "@/lib/api";
+import { fetchBrands, fetchBrand, fetchTokenEstimate, generateContent } from "@/lib/api";
 import type { BrandProfile } from "@/lib/api";
 import { saveToDrive } from "@/lib/saveToDrive";
 import { DEFAULT_STRATEGY, type StrategySelection } from "@/types/strategy";
@@ -24,6 +24,22 @@ export default function DirectorBriefToolPage() {
   const [error, setError] = useState<string | null>(null);
   const [saveLoading, setSaveLoading] = useState(false);
   const [saveStatus, setSaveStatus] = useState<"idle" | "success" | "error">("idle");
+  const [tokenEstimate, setTokenEstimate] = useState<{
+    estimatedInput: number;
+    estimatedOutput: number;
+    estimatedTotal: number;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!brandId) {
+      setTokenEstimate(null);
+      return;
+    }
+    fetchTokenEstimate(brandId, { ...selection, directionLevel: selection.directionLevel || "director" }).then((r) => {
+      if ("data" in r) setTokenEstimate(r.data);
+      else setTokenEstimate(null);
+    });
+  }, [brandId, selection]);
 
   useEffect(() => {
     fetchBrands().then((r) => {
@@ -84,6 +100,9 @@ export default function DirectorBriefToolPage() {
         <p className="mt-1 text-sm text-zinc-400">
           Creative direction: concept, art, camera, lighting, typography, sound.
         </p>
+        <div className="mt-3 rounded border border-zinc-800/50 bg-zinc-900/30 px-3 py-2 text-xs text-zinc-500">
+          <strong className="text-zinc-400">How it works:</strong> Uses Director or Cinematic level. Generate, then expand sections to see details. Copy per section or Save to Drive.
+        </div>
       </div>
 
       <div className="space-y-4 rounded-lg border border-zinc-800 bg-zinc-900/30 p-4">
@@ -104,6 +123,11 @@ export default function DirectorBriefToolPage() {
           />
           </div>
         </details>
+        {tokenEstimate && (
+          <p className="text-xs text-zinc-500">
+            ~{tokenEstimate.estimatedTotal} tokens estimated ({tokenEstimate.estimatedInput} in / {tokenEstimate.estimatedOutput} out)
+          </p>
+        )}
         <div className="flex gap-2">
           <button
             type="button"

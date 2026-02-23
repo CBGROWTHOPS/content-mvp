@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { BrandSelector } from "@/components/BrandSelector";
-import { createJob, fetchBrands } from "@/lib/api";
+import { createJob, fetchBrands, fetchModels } from "@/lib/api";
 import type { Collection } from "@/types/job";
 
 const COLLECTIONS: { value: Collection; label: string }[] = [
@@ -20,10 +20,15 @@ export default function ImageToolPage() {
   const [brands, setBrands] = useState<Array<{ key: string; display_name: string }>>([]);
   const [collection, setCollection] = useState<Collection>("sheer");
   const [body, setBody] = useState("");
+  const [modelKey, setModelKey] = useState<string>("");
+  const [models, setModels] = useState<import("@/lib/api").ApiModel[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    fetchModels().then((r) => {
+      if ("data" in r) setModels(r.data.filter((m) => m.formats_supported.includes("image_kit")));
+    });
     fetchBrands().then((r) => {
       if ("data" in r) {
         setBrands(r.data);
@@ -40,7 +45,7 @@ export default function ImageToolPage() {
     }
     setLoading(true);
     setError(null);
-    const result = await createJob({
+    const payload: Record<string, unknown> = {
       brand_key: brandId,
       brand: brandId,
       format: "image_kit",
@@ -49,7 +54,9 @@ export default function ImageToolPage() {
       aspect_ratio: "4:5",
       collection,
       variables: { body: body || "Architectural window treatment in modern space" },
-    });
+    };
+    if (modelKey) payload.model_key = modelKey;
+    const result = await createJob(payload);
     setLoading(false);
     if ("data" in result) {
       router.push(`/jobs/${result.data.id}`);
@@ -70,6 +77,9 @@ export default function ImageToolPage() {
         <p className="mt-1 text-sm text-zinc-400">
           4:5 editorial image. Uses Image Kit template.
         </p>
+        <div className="mt-3 rounded border border-zinc-800/50 bg-zinc-900/30 px-3 py-2 text-xs text-zinc-500">
+          <strong className="text-zinc-400">How it works:</strong> Pick brand, collection, and description. Queues a job; result appears in <Link href="/jobs" className="text-zinc-400 underline hover:text-white">Logs</Link>.
+        </div>
       </div>
       <form onSubmit={handleSubmit} className="space-y-4">
         {error && (
@@ -93,6 +103,23 @@ export default function ImageToolPage() {
             ))}
           </select>
         </div>
+        {models.length > 1 && (
+          <div>
+            <label className="mb-1 block text-sm font-medium text-zinc-400">Model</label>
+            <select
+              value={modelKey}
+              onChange={(e) => setModelKey(e.target.value)}
+              className="w-full rounded border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 focus:border-zinc-600 focus:outline-none"
+            >
+              <option value="">Default</option>
+              {models.map((m) => (
+                <option key={m.key} value={m.key}>
+                  {m.key} — {m.short_description} · {m.cost_tier}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
         <div>
           <label className="mb-1 block text-sm font-medium text-zinc-400">Description</label>
           <input

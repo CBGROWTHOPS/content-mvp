@@ -44,6 +44,9 @@ export default function PromptUpgradeToolPage() {
         <p className="mt-1 text-sm text-zinc-400">
           Paste a rough prompt and get an improved, more detailed version for image or video generation.
         </p>
+        <div className="mt-3 rounded border border-zinc-800/50 bg-zinc-900/30 px-3 py-2 text-xs text-zinc-500">
+          <strong className="text-zinc-400">How it works:</strong> Paste your prompt, click Upgrade, then Copy the result for use in Image or Reel tools.
+        </div>
       </div>
       <div>
         <label className="mb-1 block text-sm font-medium text-zinc-400">Your prompt</label>

@@ -31,31 +31,21 @@ export default function RootLayout({
                 Tools
               </a>
               <a
-                href="/console"
-                className="text-sm text-zinc-400 hover:text-zinc-100"
-              >
-                Content Console
-              </a>
-              <a
                 href="/jobs"
                 className="text-sm text-zinc-400 hover:text-zinc-100"
               >
-                Jobs
+                Logs
               </a>
               <a
-                href="/new"
+                href="/docs"
                 className="text-sm text-zinc-400 hover:text-zinc-100"
               >
-                New Job
+                Docs
               </a>
             </nav>
           </header>
           <main>{children}</main>
-          <footer className="mt-12 border-t border-zinc-800 pt-6 text-center text-sm text-zinc-500">
-            <Link href="/docs" className="text-zinc-400 hover:text-white">
-              Documentation
-            </Link>
-          </footer>
+          <footer className="mt-12 border-t border-zinc-800 pt-6 text-center text-sm text-zinc-500" />
         </div>
       </body>
     </html>

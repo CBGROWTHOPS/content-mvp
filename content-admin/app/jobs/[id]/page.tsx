@@ -100,7 +100,7 @@ export default function JobDetailPage() {
       <div className="rounded-lg border border-red-900/50 bg-red-950/30 p-6">
         <p className="text-red-400">{error ?? "Job not found"}</p>
         <Link href="/jobs" className="mt-4 inline-block text-sm text-zinc-400 hover:text-white">
-          ← Back to jobs
+          ← Back to logs
         </Link>
       </div>
     );
@@ -115,7 +115,7 @@ export default function JobDetailPage() {
           href="/jobs"
           className="text-sm text-zinc-400 hover:text-white"
         >
-          ← Back to jobs
+          ← Back to logs
         </Link>
       </div>
 

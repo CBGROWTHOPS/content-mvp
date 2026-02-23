@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { BrandSelector } from "@/components/BrandSelector";
-import { createJob, fetchBrands } from "@/lib/api";
+import { createJob, fetchBrands, fetchModels } from "@/lib/api";
 import type { ReelKitHookType } from "@/types/job";
 
 const HOOKS: { value: ReelKitHookType; label: string }[] = [
@@ -19,10 +19,15 @@ export default function SingleReelClipToolPage() {
   const [brands, setBrands] = useState<Array<{ key: string; display_name: string }>>([]);
   const [hookType, setHookType] = useState<ReelKitHookType>("contrast");
   const [concept, setConcept] = useState("");
+  const [modelKey, setModelKey] = useState("");
+  const [models, setModels] = useState<import("@/lib/api").ApiModel[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    fetchModels().then((r) => {
+      if ("data" in r) setModels(r.data.filter((m) => m.formats_supported.includes("reel_kit")));
+    });
     fetchBrands().then((r) => {
       if ("data" in r) {
         setBrands(r.data);
@@ -39,7 +44,7 @@ export default function SingleReelClipToolPage() {
     }
     setLoading(true);
     setError(null);
-    const result = await createJob({
+    const payload: Record<string, unknown> = {
       brand_key: brandId,
       brand: brandId,
       format: "reel_kit",
@@ -49,7 +54,9 @@ export default function SingleReelClipToolPage() {
       length_seconds: 6,
       reel_kit_hook_type: hookType,
       variables: { concept: concept || "Design Your Light" },
-    });
+    };
+    if (modelKey) payload.model_key = modelKey;
+    const result = await createJob(payload);
     setLoading(false);
     if ("data" in result) {
       router.push(`/jobs/${result.data.id}`);
@@ -70,6 +77,9 @@ export default function SingleReelClipToolPage() {
         <p className="mt-1 text-sm text-zinc-400">
           6-second 9:16 clip. Uses Reel Kit template.
         </p>
+        <div className="mt-3 rounded border border-zinc-800/50 bg-zinc-900/30 px-3 py-2 text-xs text-zinc-500">
+          <strong className="text-zinc-400">How it works:</strong> Pick brand, hook type, and concept. Queues a job; result appears in <Link href="/jobs" className="text-zinc-400 underline hover:text-white">Logs</Link>.
+        </div>
       </div>
       <form onSubmit={handleSubmit} className="space-y-4">
         {error && (
@@ -81,6 +91,23 @@ export default function SingleReelClipToolPage() {
           <label className="mb-1 block text-sm font-medium text-zinc-400">Brand</label>
           <BrandSelector value={brandId} onChange={setBrandId} brands={brands} />
         </div>
+        {models.length > 1 && (
+          <div>
+            <label className="mb-1 block text-sm font-medium text-zinc-400">Model</label>
+            <select
+              value={modelKey}
+              onChange={(e) => setModelKey(e.target.value)}
+              className="w-full rounded border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 focus:border-zinc-600 focus:outline-none"
+            >
+              <option value="">Default</option>
+              {models.map((m) => (
+                <option key={m.key} value={m.key}>
+                  {m.key} — {m.short_description} · {m.cost_tier}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
         <div>
           <label className="mb-1 block text-sm font-medium text-zinc-400">Hook type</label>
           <select
