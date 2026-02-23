@@ -2,7 +2,7 @@ import { z } from "zod";
 
 export const jobSchema = z.object({
   brand: z.string().min(1, "Brand is required"),
-  format: z.enum(["reel", "story", "post"]),
+  format: z.enum(["reel", "story", "post", "image"]),
   length_seconds: z.number().int().positive().max(60),
   objective: z.enum(["lead_generation", "awareness", "conversion", "engagement"]),
   hook_type: z.enum(["contrast", "question", "pain_point", "statistic", "story"]),

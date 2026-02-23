@@ -1,5 +1,5 @@
 import pg from "pg";
-import { readFileSync } from "fs";
+import { readFileSync, readdirSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 
@@ -13,7 +13,6 @@ if (!password) {
   process.exit(1);
 }
 
-// Try pooler first (more reliable for remote connections)
 const client = new pg.Client({
   host: "aws-0-us-west-2.pooler.supabase.com",
   port: 5432,
@@ -23,12 +22,17 @@ const client = new pg.Client({
   ssl: { rejectUnauthorized: false },
 });
 
-const sql = readFileSync(join(__dirname, "../sql/migrations/001_initial.sql"), "utf8");
+const migrationsDir = join(__dirname, "../sql/migrations");
+const files = readdirSync(migrationsDir).filter((f) => f.endsWith(".sql")).sort();
 
 try {
   await client.connect();
-  await client.query(sql);
-  console.log("Migration completed successfully");
+  for (const file of files) {
+    const sql = readFileSync(join(migrationsDir, file), "utf8");
+    await client.query(sql);
+    console.log(`Ran ${file}`);
+  }
+  console.log("Migrations completed successfully");
 } catch (err) {
   console.error("Migration failed:", err.message);
   process.exit(1);

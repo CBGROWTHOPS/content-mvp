@@ -17,6 +17,7 @@ router.post("/generate", validateJobBody, async (req: Request, res: Response) =>
         format: payload.format,
         objective: payload.objective,
         model: payload.model,
+        payload,
       })
       .select("id")
       .single();

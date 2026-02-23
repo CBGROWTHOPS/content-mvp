@@ -1,0 +1,74 @@
+const getBaseUrl = () => {
+  const url = process.env.NEXT_PUBLIC_API_URL;
+  if (!url) {
+    throw new Error("NEXT_PUBLIC_API_URL is not set");
+  }
+  return url.replace(/\/$/, "");
+};
+
+export async function fetchJobs(): Promise<
+  { data: unknown[] } | { error: string }
+> {
+  try {
+    const res = await fetch(`${getBaseUrl()}/jobs`, {
+      cache: "no-store",
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: res.statusText }));
+      return { error: (err as { error?: string }).error ?? res.statusText };
+    }
+    const data = await res.json();
+    return { data };
+  } catch (e) {
+    return {
+      error: e instanceof Error ? e.message : "Failed to fetch jobs",
+    };
+  }
+}
+
+export async function fetchJob(
+  id: string
+): Promise<{ data: unknown } | { error: string }> {
+  try {
+    const res = await fetch(`${getBaseUrl()}/jobs/${id}`, {
+      cache: "no-store",
+    });
+    if (!res.ok) {
+      if (res.status === 404) return { error: "Job not found" };
+      const err = await res.json().catch(() => ({ error: res.statusText }));
+      return { error: (err as { error?: string }).error ?? res.statusText };
+    }
+    const data = await res.json();
+    return { data };
+  } catch (e) {
+    return {
+      error: e instanceof Error ? e.message : "Failed to fetch job",
+    };
+  }
+}
+
+export async function createJob(
+  payload: object
+): Promise<{ data: { id: string; status: string } } | { error: string }> {
+  try {
+    const res = await fetch(`${getBaseUrl()}/generate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const msg =
+        (json as { error?: string }).error ??
+        (json as { details?: unknown }).details
+          ? JSON.stringify((json as { details?: unknown }).details)
+          : res.statusText;
+      return { error: msg };
+    }
+    return { data: json as { id: string; status: string } };
+  } catch (e) {
+    return {
+      error: e instanceof Error ? e.message : "Failed to create job",
+    };
+  }
+}
