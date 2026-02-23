@@ -25,6 +25,12 @@ export default function RootLayout({
             </a>
             <nav className="flex gap-4">
               <a
+                href="/tools"
+                className="text-sm text-zinc-400 hover:text-zinc-100"
+              >
+                Tools
+              </a>
+              <a
                 href="/console"
                 className="text-sm text-zinc-400 hover:text-zinc-100"
               >

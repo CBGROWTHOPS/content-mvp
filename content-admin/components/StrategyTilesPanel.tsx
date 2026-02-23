@@ -18,6 +18,10 @@ interface StrategyTilesPanelProps {
   selection: StrategySelection;
   onChange: (selection: StrategySelection) => void;
   brand?: BrandProfile | null;
+  /** Hide Direction Level tile (e.g. for Marketing-only tool) */
+  showDirectionLevel?: boolean;
+  /** Hide Advanced drawer */
+  showAdvanced?: boolean;
 }
 
 function updateSelection(
@@ -41,7 +45,13 @@ const CTA_STYLE_OPTIONS = [
   { id: "minimal", label: "Minimal" },
 ];
 
-export function StrategyTilesPanel({ selection, onChange, brand }: StrategyTilesPanelProps) {
+export function StrategyTilesPanel({
+  selection,
+  onChange,
+  brand,
+  showDirectionLevel = true,
+  showAdvanced = true,
+}: StrategyTilesPanelProps) {
   const [advancedOpen, setAdvancedOpen] = useState(false);
 
   const productCatalog = brand?.kit?.selectors?.productCatalog;
@@ -114,15 +124,18 @@ export function StrategyTilesPanel({ selection, onChange, brand }: StrategyTiles
         value={selection.platformFormat}
         onChange={(id) => onChange(updateSelection(selection, "platformFormat", id))}
       />
-      <TileGroup
-        title="Direction Level"
-        options={DIRECTION_LEVEL_OPTIONS}
-        value={selection.directionLevel ?? "template"}
-        onChange={(id) =>
-          onChange(updateSelection(selection, "directionLevel", id as StrategySelection["directionLevel"]))
-        }
-      />
+      {showDirectionLevel && (
+        <TileGroup
+          title="Direction Level"
+          options={DIRECTION_LEVEL_OPTIONS}
+          value={selection.directionLevel ?? "template"}
+          onChange={(id) =>
+            onChange(updateSelection(selection, "directionLevel", id as StrategySelection["directionLevel"]))
+          }
+        />
+      )}
       {/* Advanced drawer */}
+      {showAdvanced && (
       <div className="rounded border border-zinc-800 bg-zinc-900/30">
         <button
           type="button"
@@ -217,6 +230,7 @@ export function StrategyTilesPanel({ selection, onChange, brand }: StrategyTiles
           </div>
         )}
       </div>
+      )}
     </div>
   );
 }
