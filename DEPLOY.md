@@ -67,10 +67,7 @@ In each Railway service, set:
 
 ### Vercel project configuration
 
-In Vercel → Project Settings:
-
-1. **Root Directory** = `content-admin` (required – otherwise Vercel may deploy the root and serve the Express API instead of the admin UI)
-2. **Framework** = Next.js (auto-detected when root is content-admin)
+Root Directory = `content-admin` (set via API). Framework = Next.js.
 
 ### Environment variables
 
@@ -80,8 +77,20 @@ Vercel → Settings → Environment Variables:
 
 If the env var is missing, you’ll see “Failed to fetch”. Redeploy after adding it.
 
-**Note:** The root `vercel.json` is for optional API-on-Vercel deployment. Ignore it. Use Root Directory `content-admin` so only the admin UI is deployed.
+**Note:** Only the `content-admin` Vercel project is used. The `content-mvp` project has been removed to avoid duplicate deployments. Root Directory is set to `content-admin` for this project.
 
-### "Failed to fetch" fix
+### CORS
 
-CORS is enabled on the Railway API so the Vercel frontend can call it. Redeploy the Railway API after pulling the latest code so CORS takes effect.
+The Railway API allows requests from:
+- `https://content-admin-nine.vercel.app`
+- `http://localhost:3000`
+- Vercel preview URLs (`content-admin-*.vercel.app`)
+
+OPTIONS preflight is handled automatically. Redeploy the Railway **web** service after pulling CORS changes.
+
+### "Failed to fetch jobs" / 500 on /jobs
+
+If the UI shows "Failed to fetch jobs", the API may return 500 when Supabase fails. Check Railway logs for the web service. Ensure:
+- `SUPABASE_URL` and `SUPABASE_SERVICE_KEY` are set
+- Migrations have been run (`npm run db:migrate`)
+- The `jobs` table exists and RLS allows service-role access
