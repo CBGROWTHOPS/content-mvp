@@ -6,6 +6,7 @@ Visual Content Operating System: strategy-driven content generation, Brand Kits,
 
 - **Content Console** — Strategy tiles (objective, audience, property type, visual energy, hook, format) → AI-generated marketing copy + creative production brief. Returns structured JSON; no free typing.
 - **Asset Jobs** — Queue video/image generation via Replicate (Minimax, Flux, SDXL). Jobs run async; outputs stored in Supabase.
+- **Deterministic reel renderer** — When a job has a `generation_id` with a `reelBlueprint`, the worker uses **Remotion** (not an AI model) to stitch shots into MP4. Fully controlled, no hallucination. AI video models (Replicate) are only used when no blueprint is present.
 - **Brand Kits** — File-based brand profiles per brand. Each kit defines positioning, target ICP, voice, visuals, scene requirements, CTAs, and guardrails. NA Blinds included.
 - **Formats** — Reel, Image, Image Kit (4:5), Reel Kit (9:16), Wide Video Kit (16:9).
 
@@ -19,6 +20,8 @@ Supabase: run migration, create `content-outputs` bucket if needed.
 - OpenAI key (Content Console)
 
 Optional: `npm run db:migrate`, `npm run db:create-bucket`.
+
+**Remotion** (blueprint-based reel rendering): Uses headless Chrome. On Linux servers, install [Remotion's Linux dependencies](https://www.remotion.dev/docs/miscellaneous/linux-dependencies). On macOS it works out of the box.
 
 ## Run
 
