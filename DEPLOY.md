@@ -59,9 +59,29 @@ In each Railway service, set:
 
 **Worker service:** Same as API.
 
-## ✓ content-admin (Vercel)
+## content-admin (Vercel)
 
 **Live:** https://content-admin-nine.vercel.app
 
-For GitHub auto-deploys, add in Vercel → content-admin project → Settings → Environment Variables:
+**Important:** The backend (Express API) must NOT be deployed on Vercel. Only the Next.js admin UI is on Vercel. The API, worker, and Redis run on Railway only.
+
+### Vercel project configuration
+
+In Vercel → Project Settings:
+
+1. **Root Directory** = `content-admin` (required – otherwise Vercel may deploy the root and serve the Express API instead of the admin UI)
+2. **Framework** = Next.js (auto-detected when root is content-admin)
+
+### Environment variables
+
+Vercel → Settings → Environment Variables:
+
 - `NEXT_PUBLIC_API_URL` = `https://web-production-4f46b.up.railway.app`
+
+If the env var is missing, you’ll see “Failed to fetch”. Redeploy after adding it.
+
+**Note:** The root `vercel.json` is for optional API-on-Vercel deployment. Ignore it. Use Root Directory `content-admin` so only the admin UI is deployed.
+
+### "Failed to fetch" fix
+
+CORS is enabled on the Railway API so the Vercel frontend can call it. Redeploy the Railway API after pulling the latest code so CORS takes effect.
