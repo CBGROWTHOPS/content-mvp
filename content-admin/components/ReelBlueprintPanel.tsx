@@ -39,24 +39,18 @@ export function ReelBlueprintPanel({ data, onCopy }: ReelBlueprintPanelProps) {
 
   if (!data) {
     return (
-      <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-6">
-        <h3 className="mb-3 text-sm font-medium text-zinc-400">Reel Storyboard</h3>
-        <p className="text-sm text-zinc-500">
-          Select a brand and strategy to generate.
-        </p>
-      </div>
+      <p className="rounded-lg border border-zinc-800/50 bg-zinc-900/30 p-6 text-sm text-zinc-500">
+        Select a brand and strategy, then click Generate.
+      </p>
     );
   }
 
-  const { format, durationSeconds, fps, music, soundDesign, colorGrade, typography, shots } = data;
+  const { format, durationSeconds, fps, music, colorGrade, shots } = data;
 
   const fullText = [
-    `Format: ${format}`,
-    `Duration: ${durationSeconds}s @ ${fps}fps`,
+    `Format: ${format} · ${durationSeconds}s @ ${fps}fps`,
     music ? `Music: ${music}` : null,
-    soundDesign ? `Sound: ${soundDesign}` : null,
     colorGrade ? `Grade: ${colorGrade}` : null,
-    typography ? `Typography: ${typography}` : null,
     "",
     ...shots.map(
       (s) =>
@@ -69,43 +63,42 @@ export function ReelBlueprintPanel({ data, onCopy }: ReelBlueprintPanelProps) {
     .join("\n");
 
   return (
-    <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-6">
-      <div className="mb-4 flex items-center justify-between">
-        <h3 className="text-sm font-medium text-zinc-400">Reel Storyboard</h3>
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <p className="text-xs text-zinc-500">
+          {format} · {durationSeconds}s @ {fps}fps
+          {music && ` · ${music}`}
+        </p>
         <CopyButton
           onClick={() => handleCopy(fullText, "full")}
-          label={copied === "full" ? "Copied" : "Copy All"}
+          label={copied === "full" ? "Copied" : "Copy all"}
         />
       </div>
-      <div className="mb-4 flex flex-wrap gap-4 text-xs text-zinc-500">
-        <span>{format}</span>
-        <span>{durationSeconds}s @ {fps}fps</span>
-        {music && <span>Music: {music}</span>}
-        {colorGrade && <span>Grade: {colorGrade}</span>}
-      </div>
+
       <div className="space-y-3">
         {shots.map((shot, i) => (
           <div
             key={shot.shotId}
-            className="rounded border border-zinc-800 bg-zinc-900/50 p-3"
+            className="rounded border border-zinc-800/50 bg-zinc-900/20 px-4 py-3"
           >
-            <div className="mb-2 flex items-center justify-between">
-              <span className="text-xs font-medium text-zinc-400">
-                Shot {i + 1} — {formatTime(shot.timeStart)}–{formatTime(shot.timeEnd)}
+            <div className="mb-1 flex items-center gap-2">
+              <span className="text-sm font-medium text-zinc-300">
+                Shot {i + 1}
               </span>
-              <span className="rounded bg-zinc-800 px-1.5 py-0.5 text-[10px] text-zinc-500">
+              <span className="text-xs text-zinc-500">
+                {formatTime(shot.timeStart)}–{formatTime(shot.timeEnd)}
+              </span>
+              <span className="rounded bg-zinc-800/80 px-1.5 py-0.5 text-[10px] text-zinc-400">
                 {shot.shotType} · {shot.cameraMovement}
               </span>
             </div>
-            <p className="text-sm text-zinc-300">{shot.sceneDescription}</p>
-            {shot.onScreenText && (
-              <p className="mt-1 text-xs text-zinc-500">
-                Text: {shot.onScreenText.text}
-                {shot.onScreenText.position && ` (${shot.onScreenText.position})`}
+            <p className="text-sm text-zinc-200">{shot.sceneDescription}</p>
+            {(shot.onScreenText || shot.lightingNotes) && (
+              <p className="mt-1.5 text-xs text-zinc-500">
+                {shot.onScreenText && `Text: ${shot.onScreenText.text}`}
+                {shot.onScreenText && shot.lightingNotes && " · "}
+                {shot.lightingNotes && `Lighting: ${shot.lightingNotes}`}
               </p>
-            )}
-            {shot.lightingNotes && (
-              <p className="mt-1 text-xs text-zinc-500">Lighting: {shot.lightingNotes}</p>
             )}
           </div>
         ))}

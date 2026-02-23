@@ -1,17 +1,15 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { BrandSelector } from "@/components/BrandSelector";
-import { StrategyTilesPanel } from "@/components/StrategyTilesPanel";
+import { CompactStrategyForm } from "@/components/CompactStrategyForm";
 import { MarketingOutputPanel } from "@/components/MarketingOutputPanel";
 import { fetchBrands, fetchBrand, generateContent } from "@/lib/api";
 import type { BrandProfile } from "@/lib/api";
 import { saveToDrive } from "@/lib/saveToDrive";
 import { DEFAULT_STRATEGY, type StrategySelection } from "@/types/strategy";
 import type { GenerateResponse } from "@/types/generate";
-
-const DEBOUNCE_MS = 500;
 
 export default function MarketingToolPage() {
   const [brandId, setBrandId] = useState("");
@@ -22,11 +20,10 @@ export default function MarketingToolPage() {
     directionLevel: "template",
   });
   const [output, setOutput] = useState<GenerateResponse | null>(null);
-  const [updating, setUpdating] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [saveToDriveLoading, setSaveToDriveLoading] = useState(false);
-  const [saveToDriveStatus, setSaveToDriveStatus] = useState<"idle" | "success" | "error">("idle");
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [saveLoading, setSaveLoading] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<"idle" | "success" | "error">("idle");
 
   useEffect(() => {
     fetchBrands().then((r) => {
@@ -48,91 +45,90 @@ export default function MarketingToolPage() {
     });
   }, [brandId]);
 
-  const runGenerate = useCallback(async (bId: string, sel: StrategySelection) => {
-    if (!bId) return;
-    setUpdating(true);
+  const handleGenerate = async () => {
+    if (!brandId) return;
+    setLoading(true);
     setError(null);
-    const result = await generateContent(bId, sel);
-    setUpdating(false);
+    const result = await generateContent(brandId, selection);
+    setLoading(false);
     if ("data" in result) setOutput(result.data);
     else setError(result.error ?? "Failed to generate");
-  }, []);
-
-  useEffect(() => {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    if (!brandId) return;
-    debounceRef.current = setTimeout(() => {
-      debounceRef.current = null;
-      runGenerate(brandId, selection);
-    }, DEBOUNCE_MS);
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-    };
-  }, [brandId, selection, runGenerate]);
+  };
 
   const handleSaveToDrive = async () => {
     if (!output || !brandId) return;
-    setSaveToDriveLoading(true);
-    setSaveToDriveStatus("idle");
+    setSaveLoading(true);
+    setSaveStatus("idle");
     const result = await saveToDrive(brandId, selection, output);
-    setSaveToDriveLoading(false);
+    setSaveLoading(false);
     if (result.success) {
-      setSaveToDriveStatus("success");
-      setTimeout(() => setSaveToDriveStatus("idle"), 3000);
+      setSaveStatus("success");
+      setTimeout(() => setSaveStatus("idle"), 3000);
     } else {
-      setSaveToDriveStatus("error");
+      setSaveStatus("error");
     }
   };
 
   return (
-    <div className="flex min-h-[calc(100vh-12rem)] flex-col">
-      <div className="mb-4 flex items-center gap-2 text-sm text-zinc-500">
+    <div className="max-w-2xl space-y-6">
+      <div className="flex items-center gap-2 text-sm text-zinc-500">
         <Link href="/tools" className="hover:text-zinc-300">Tools</Link>
         <span>/</span>
         <span className="text-zinc-300">Marketing Copy</span>
       </div>
-      <div className="flex flex-1 gap-6 overflow-hidden">
-        <div className="w-72 shrink-0 overflow-y-auto rounded-lg border border-zinc-800 bg-zinc-900/30 p-4">
-          <h2 className="mb-3 text-xs font-medium uppercase tracking-wide text-zinc-500">
+      <div>
+        <h1 className="text-xl font-semibold text-zinc-100">Marketing Copy</h1>
+        <p className="mt-1 text-sm text-zinc-400">
+          Headlines, CTAs, captions, and variations for ads and social.
+        </p>
+      </div>
+
+      <div className="space-y-4 rounded-lg border border-zinc-800 bg-zinc-900/30 p-4">
+        <div>
+          <label className="mb-1 block text-sm font-medium text-zinc-400">Brand</label>
+          <BrandSelector value={brandId} onChange={setBrandId} brands={brands} />
+        </div>
+        <details className="group" open>
+          <summary className="cursor-pointer text-sm font-medium text-zinc-400 hover:text-zinc-300">
             Strategy
-          </h2>
-          <StrategyTilesPanel
+          </summary>
+          <div className="mt-3">
+          <CompactStrategyForm
             selection={selection}
             onChange={setSelection}
             brand={brand}
             showDirectionLevel={false}
-            showAdvanced={false}
           />
-        </div>
-        <div className="flex min-w-0 flex-1 flex-col">
-          <div className="mb-3 flex flex-wrap items-center gap-3">
-            <BrandSelector value={brandId} onChange={setBrandId} brands={brands} />
-            <button
-              type="button"
-              onClick={() => runGenerate(brandId, selection)}
-              disabled={!brandId || updating}
-              className="rounded bg-zinc-100 px-4 py-1.5 text-sm font-medium text-zinc-900 hover:bg-zinc-200 disabled:opacity-50"
-            >
-              {updating ? "Generating…" : "Generate"}
-            </button>
-            <button
-              type="button"
-              onClick={handleSaveToDrive}
-              disabled={!output || updating || saveToDriveLoading}
-              className="rounded border border-zinc-700 px-3 py-1.5 text-sm text-zinc-300 hover:bg-zinc-800 disabled:opacity-50"
-            >
-              {saveToDriveLoading ? "Saving…" : saveToDriveStatus === "success" ? "Saved" : "Save to Drive"}
-            </button>
           </div>
-          {error && (
-            <div className="mb-3 rounded border border-red-900/50 bg-red-950/30 px-3 py-2 text-sm text-red-400">
-              {error}
-            </div>
-          )}
-          <div className="flex-1 overflow-auto rounded-lg border border-zinc-800 bg-zinc-900/30 p-4">
-            <MarketingOutputPanel data={output?.marketingOutput ?? null} />
-          </div>
+        </details>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={handleGenerate}
+            disabled={!brandId || loading}
+            className="rounded bg-zinc-100 px-4 py-2 text-sm font-medium text-zinc-900 hover:bg-zinc-200 disabled:opacity-50"
+          >
+            {loading ? "Generating…" : "Generate"}
+          </button>
+          <button
+            type="button"
+            onClick={handleSaveToDrive}
+            disabled={!output || loading || saveLoading}
+            className="rounded border border-zinc-700 px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-800 disabled:opacity-50"
+          >
+            {saveLoading ? "Saving…" : saveStatus === "success" ? "Saved" : "Save to Drive"}
+          </button>
         </div>
+      </div>
+
+      {error && (
+        <div className="rounded border border-red-900/50 bg-red-950/30 px-3 py-2 text-sm text-red-400">
+          {error}
+        </div>
+      )}
+
+      <div>
+        <MarketingOutputPanel data={output?.marketingOutput ?? null} />
       </div>
     </div>
   );

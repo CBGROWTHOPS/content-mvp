@@ -39,12 +39,9 @@ export function MarketingOutputPanel({ data, onCopy }: MarketingOutputPanelProps
 
   if (!data) {
     return (
-      <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-6">
-        <h3 className="mb-3 text-sm font-medium text-zinc-400">
-          Marketing Output
-        </h3>
-        <p className="text-sm text-zinc-500">Select a brand and strategy to generate.</p>
-      </div>
+      <p className="rounded-lg border border-zinc-800/50 bg-zinc-900/30 p-6 text-sm text-zinc-500">
+        Select a brand and strategy, then click Generate.
+      </p>
     );
   }
 
@@ -60,53 +57,51 @@ export function MarketingOutputPanel({ data, onCopy }: MarketingOutputPanelProps
     .join("\n\n");
 
   return (
-    <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-6">
-      <div className="mb-3 flex items-center justify-between">
-        <h3 className="text-sm font-medium text-zinc-400">Marketing Output</h3>
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-medium text-zinc-400">Output</h3>
         <CopyButton
           onClick={() => handleCopy(fullText)}
-          label={copied ? "Copied" : "Copy"}
+          label={copied ? "Copied" : "Copy all"}
         />
       </div>
-      <div className="space-y-3 text-sm">
-        {data.primaryText && (
-          <div>
-            <span className="text-zinc-500">Primary: </span>
-            <span className="text-zinc-100">{data.primaryText}</span>
-          </div>
-        )}
+      <div className="space-y-4 text-sm">
         {data.headline && (
           <div>
-            <span className="text-zinc-500">Headline: </span>
-            <span className="text-zinc-100 font-medium">{data.headline}</span>
+            <p className="text-xs text-zinc-500 uppercase tracking-wide">Headline</p>
+            <p className="mt-0.5 font-medium text-zinc-100">{data.headline}</p>
+          </div>
+        )}
+        {data.primaryText && (
+          <div>
+            <p className="text-xs text-zinc-500 uppercase tracking-wide">Primary</p>
+            <p className="mt-0.5 text-zinc-200">{data.primaryText}</p>
           </div>
         )}
         {data.secondaryLine && (
           <div>
-            <span className="text-zinc-500">Secondary: </span>
-            <span className="text-zinc-100">{data.secondaryLine}</span>
+            <p className="text-xs text-zinc-500 uppercase tracking-wide">Secondary</p>
+            <p className="mt-0.5 text-zinc-200">{data.secondaryLine}</p>
           </div>
         )}
         {data.cta && (
           <div>
-            <span className="text-zinc-500">CTA: </span>
-            <span className="text-zinc-100">{data.cta}</span>
+            <p className="text-xs text-zinc-500 uppercase tracking-wide">CTA</p>
+            <p className="mt-0.5 text-zinc-200">{data.cta}</p>
           </div>
         )}
         {data.caption && (
           <div>
-            <span className="text-zinc-500">Caption: </span>
-            <span className="text-zinc-100">{data.caption}</span>
+            <p className="text-xs text-zinc-500 uppercase tracking-wide">Caption</p>
+            <p className="mt-0.5 text-zinc-200">{data.caption}</p>
           </div>
         )}
         {data.variations && data.variations.length > 0 && (
           <div>
-            <span className="text-zinc-500">Variations:</span>
-            <ul className="mt-1 space-y-1 pl-4">
+            <p className="text-xs text-zinc-500 uppercase tracking-wide">Variations</p>
+            <ul className="mt-1 space-y-1 text-zinc-300">
               {data.variations.map((v, i) => (
-                <li key={i} className="text-zinc-300">
-                  {v}
-                </li>
+                <li key={i}>• {v}</li>
               ))}
             </ul>
           </div>
