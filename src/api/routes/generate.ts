@@ -64,6 +64,35 @@ router.post("/upgrade-prompt", async (req: Request, res: Response) => {
   }
 });
 
+router.get("/generations/:id", async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { data: row, error } = await supabase
+      .from("generations")
+      .select("*")
+      .eq("id", id)
+      .single();
+    if (error || !row) {
+      res.status(404).json({ error: "Generation not found" });
+      return;
+    }
+    res.json({
+      generationId: row.id,
+      strategy: row.strategy,
+      marketingOutput: row.marketing_output,
+      creativeBrief: row.creative_brief,
+      creativeDirectorBrief: row.creative_director_brief,
+      reelBlueprint: row.reel_blueprint,
+      tokenUsage: row.token_usage,
+      createdAt: row.created_at,
+    });
+  } catch (err) {
+    console.error("Get generation error:", err);
+    const msg = err instanceof Error ? err.message : "Internal server error";
+    res.status(500).json({ error: msg });
+  }
+});
+
 router.post("/generate-content", async (req: Request, res: Response) => {
   try {
     const { brandId, strategySelection } = req.body;
@@ -74,8 +103,22 @@ router.post("/generate-content", async (req: Request, res: Response) => {
     // Pass full strategySelection (directionLevel, productCategory, productType, etc.)
     const result = await generateStructuredContent(brandId, strategySelection);
     const generationId = crypto.randomUUID();
-    // Return full result including generationId, creativeDirectorBrief, reelBlueprint, tokenUsage
-    res.json({ ...result, generationId });
+    const { error: insertError } = await supabase.from("generations").insert({
+      id: generationId,
+      brand_id: brandId,
+      strategy: strategySelection,
+      marketing_output: result.marketingOutput ?? null,
+      creative_brief: result.creativeBrief ?? null,
+      creative_director_brief: result.creativeDirectorBrief ?? null,
+      reel_blueprint: result.reelBlueprint ?? null,
+      token_usage: result.tokenUsage ?? null,
+    });
+    if (insertError) {
+      console.error("Generation insert error:", insertError);
+      // Still return the result; persistence is best-effort
+    }
+    // Return full result: canonical Generation with generationId, strategy, outputs, tokenUsage
+    res.json({ ...result, generationId, strategy: strategySelection });
   } catch (err) {
     console.error("Generate content error:", err);
     const msg = err instanceof Error ? err.message : "Internal server error";
@@ -108,6 +151,7 @@ router.post("/generate", validateJobBody, async (req: Request, res: Response) =>
       model_key: selected.key,
       provider_model_id: selected.provider_model_id,
     };
+    const generationId = (payload as { generation_id?: string }).generation_id ?? null;
 
     const { data: job, error: insertError } = await supabase
       .from("jobs")
@@ -118,6 +162,7 @@ router.post("/generate", validateJobBody, async (req: Request, res: Response) =>
         objective: payload.objective,
         model: selected.key,
         payload: enrichedPayload,
+        ...(generationId && { generation_id: generationId }),
       })
       .select("id")
       .single();

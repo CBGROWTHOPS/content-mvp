@@ -4,6 +4,29 @@ import { runReplicate } from "../../lib/replicate.js";
 import { supabase, STORAGE_BUCKET, getStoragePath } from "../../lib/supabase.js";
 import type { QueueJobPayload } from "../../types/index.js";
 
+function mergeGenerationIntoVariables(
+  variables: Record<string, string | number | boolean>,
+  generation: {
+    marketing_output?: { headline?: string; primaryText?: string; cta?: string } | null;
+    reel_blueprint?: { shots?: { sceneDescription?: string }[] } | null;
+  }
+): Record<string, string | number | boolean> {
+  const out = { ...variables };
+  const mo = generation.marketing_output;
+  if (mo) {
+    if (mo.headline) out.headline = mo.headline;
+    if (mo.primaryText) out.primaryText = mo.primaryText;
+    if (mo.cta) out.cta = mo.cta;
+  }
+  const rb = generation.reel_blueprint;
+  if (rb?.shots?.length) {
+    rb.shots.forEach((s, i) => {
+      if (s.sceneDescription) out[`scene${i + 1}`] = s.sceneDescription;
+    });
+  }
+  return out;
+}
+
 export async function processContentJob(job: Job<QueueJobPayload, void, string>): Promise<void> {
   const { jobId, payload } = job.data;
 
@@ -13,7 +36,19 @@ export async function processContentJob(job: Job<QueueJobPayload, void, string>)
       .update({ status: "processing", updated_at: new Date().toISOString() })
       .eq("id", jobId);
 
-    const prompt = await buildPrompt(payload);
+    let enrichedPayload = payload;
+    const genId = (payload as { generation_id?: string }).generation_id;
+    if (genId) {
+      const { data: gen } = await supabase.from("generations").select("*").eq("id", genId).single();
+      if (gen) {
+        enrichedPayload = {
+          ...payload,
+          variables: mergeGenerationIntoVariables(payload.variables ?? {}, gen),
+        };
+      }
+    }
+
+    const prompt = await buildPrompt(enrichedPayload as QueueJobPayload["payload"]);
 
     const { url: replicateUrl, cost } = await runReplicate(
       payload.provider_model_id,

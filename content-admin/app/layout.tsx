@@ -31,6 +31,12 @@ export default function RootLayout({
                 Tools
               </a>
               <a
+                href="/flows"
+                className="text-sm text-zinc-400 hover:text-zinc-100"
+              >
+                Flows
+              </a>
+              <a
                 href="/jobs"
                 className="text-sm text-zinc-400 hover:text-zinc-100"
               >

@@ -1,6 +1,7 @@
 import cors from "cors";
 import express from "express";
 import generateRouter from "./routes/generate.js";
+import flowsRouter from "./routes/flows.js";
 import jobsRouter from "./routes/jobs.js";
 import brandsRouter from "./routes/brands.js";
 import saveToDriveRouter from "./routes/saveToDrive.js";
@@ -33,6 +34,7 @@ app.get("/health", (_req, res) => {
 });
 
 app.use(generateRouter);
+app.use("/flows", flowsRouter);
 app.use("/jobs", jobsRouter);
 app.use("/brands", brandsRouter);
 app.use(saveToDriveRouter);

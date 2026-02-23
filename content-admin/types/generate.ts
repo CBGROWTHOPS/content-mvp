@@ -128,12 +128,18 @@ export interface TokenUsage {
   totalTokens: number;
 }
 
-export interface GenerateResponse {
-  generationId?: string;
+/** Canonical Generation object — unifying record for content generation. */
+export interface Generation {
+  generationId: string;
+  strategy?: StrategySelection;
   marketingOutput: MarketingOutput;
   /** Present for Template level; omitted for Director/Cinematic */
   creativeBrief?: CreativeBrief | null;
   creativeDirectorBrief?: CreativeDirectorBrief | null;
   reelBlueprint?: ReelBlueprint | null;
   tokenUsage?: TokenUsage;
+  createdAt?: string;
 }
+
+/** API response shape; alias for Generation. */
+export type GenerateResponse = Generation;

@@ -185,6 +185,27 @@ export async function fetchTokenEstimate(
   }
 }
 
+export async function fetchGeneration(
+  generationId: string
+): Promise<{ data: import("@/types/generate").GenerateResponse } | { error: string }> {
+  try {
+    const res = await fetch(`${getBaseUrl()}/generations/${generationId}`, {
+      cache: "no-store",
+    });
+    if (!res.ok) {
+      if (res.status === 404) return { error: "Generation not found" };
+      const err = await res.json().catch(() => ({ error: res.statusText }));
+      return { error: (err as { error?: string }).error ?? res.statusText };
+    }
+    const data = await res.json();
+    return { data: data as import("@/types/generate").GenerateResponse };
+  } catch (e) {
+    return {
+      error: e instanceof Error ? e.message : "Failed to fetch generation",
+    };
+  }
+}
+
 export async function generateContent(
   brandId: string,
   strategySelection: import("@/types/strategy").StrategySelection
@@ -233,6 +254,27 @@ export async function upgradePrompt(
     return {
       error: e instanceof Error ? e.message : "Failed to upgrade prompt",
     };
+  }
+}
+
+export async function runFlow(
+  flowId: string,
+  body: Record<string, unknown>
+): Promise<{ data: Record<string, unknown> } | { error: string }> {
+  try {
+    const res = await fetch(`${getBaseUrl()}/flows/${flowId}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const msg = (json as { error?: string }).error ?? res.statusText;
+      return { error: msg };
+    }
+    return { data: json as Record<string, unknown> };
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Flow failed" };
   }
 }
 

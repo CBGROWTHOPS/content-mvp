@@ -39,6 +39,7 @@ const baseJobSchema = z.object({
   variables: z
     .record(z.string(), z.union([z.string(), z.number(), z.boolean()]))
     .default({}),
+  generation_id: z.string().uuid().optional(),
 });
 
 export const jobSchema = baseJobSchema

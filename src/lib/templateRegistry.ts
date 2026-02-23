@@ -98,8 +98,8 @@ function runFallbackTemplate(
   options?: Record<string, unknown>
 ): string {
   const profile = loadBrand(brandKey);
-  const headline = profile.positioning ?? "Premium quality.";
-  const cta = profile.primary_cta ?? "Learn more";
+  const headline = (variables.headline as string) ?? profile.positioning ?? "Premium quality.";
+  const cta = (variables.cta as string) ?? profile.primary_cta ?? "Learn more";
 
   if (format === "image_kit") {
     const body = String(variables?.body ?? "Product in context.");
