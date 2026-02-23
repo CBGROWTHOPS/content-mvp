@@ -12,6 +12,14 @@ Supabase (Conversion Bridge) is configured: migration run, `content-outputs` buc
 
 Optional: `npm run db:migrate` (if schema changes), `npm run db:create-bucket` (if bucket missing).
 
+## Vercel
+
+Live: **https://content-mvp-chris-projects-ebee1a4e.vercel.app** (or check [vercel.com](https://vercel.com) dashboard)
+
+Add env vars in Vercel: `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`, `UPSTASH_REDIS_URL`, `REPLICATE_API_TOKEN`.
+
+Note: The BullMQ worker does not run on Vercel (serverless). Deploy the worker separately (e.g. Railway) for full pipeline.
+
 ## Run
 
 ```bash
