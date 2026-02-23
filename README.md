@@ -40,7 +40,7 @@ npm run dev:worker   # Worker (separate terminal)
   "objective": "lead_generation",
   "hook_type": "contrast",
   "scene_structure": 2,
-  "model": "video-model-x",
+  "model_key": "minimax-video-01",
   "variables": {
     "location": "South Florida luxury living room",
     "product": "motorized shades"

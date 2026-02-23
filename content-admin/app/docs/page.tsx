@@ -11,6 +11,58 @@ export default function DocsPage() {
         deployment, and troubleshooting.
       </p>
 
+      {/* High-level overview for users */}
+      <section className="rounded-lg border border-zinc-700 bg-zinc-900/80 p-6">
+        <h2 className="mb-4 text-xl font-semibold text-zinc-100">
+          At a Glance — What You Can Do
+        </h2>
+        <p className="mb-4 text-zinc-300">
+          Create AI-generated video and image content. Fill out a form, submit, and
+          the system queues your job, runs it through Replicate, and stores the
+          output for preview and download.
+        </p>
+        <ul className="mb-4 list-disc space-y-2 pl-6 text-zinc-300">
+          <li>
+            <strong>New Job</strong> — Choose brand, format (Reel/Image), hook type
+            (Contrast, Question, etc.), length, and variables (location, product,
+            CTA). Submit and get a job ID.
+          </li>
+          <li>
+            <strong>Jobs list</strong> — See all jobs with status (Queued, Processing,
+            Completed, Failed). Click to view details.
+          </li>
+          <li>
+            <strong>Job detail</strong> — View full metadata, status, and any error
+            messages. When completed, preview or download the video/image.
+          </li>
+          <li>
+            <strong>Regenerate</strong> — Create a new job with the same settings
+            (e.g. after a failure or to try again).
+          </li>
+        </ul>
+        <p className="mb-2 text-sm text-zinc-400">
+          <strong>Models:</strong> Choose from curated Replicate models (e.g.{" "}
+          <code className="rounded bg-zinc-800 px-1.5 py-0.5">minimax-video-01</code>,{" "}
+          <code className="rounded bg-zinc-800 px-1.5 py-0.5">flux-schnell</code>) or use the default.
+          Outputs are stored in Supabase and viewable in the UI.
+        </p>
+        <p className="text-sm text-zinc-500">
+          Jobs process asynchronously. Status moves from Queued → Processing →
+          Completed (or Failed). Check back or refresh the job page to see updates.
+        </p>
+        <p className="mt-3 text-xs text-zinc-500">
+          <strong>Note:</strong> Only the Contrast hook template is fully built
+          today. Video length is capped at 6 seconds for Replicate. Other formats
+          and hook types use defaults.
+        </p>
+      </section>
+
+      <hr className="border-zinc-800" />
+
+      <p className="text-xs uppercase tracking-wider text-zinc-500">
+        Technical reference (below)
+      </p>
+
       <section>
         <h2 className="text-lg font-semibold text-zinc-200">What It Is</h2>
         <p>

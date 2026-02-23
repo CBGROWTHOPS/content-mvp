@@ -53,6 +53,8 @@ export interface ApiModel {
   formats_supported: string[];
   default_for_format: Record<string, boolean>;
   cost_tier: string;
+  short_description: string;
+  replicate_page_url: string;
 }
 
 export async function fetchModels(): Promise<

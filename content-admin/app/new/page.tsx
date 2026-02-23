@@ -324,30 +324,45 @@ export default function NewJobPage() {
             </label>
           </div>
           {!useDefaultModel && (
-            <select
-              value={form.model_key ?? ""}
-              onChange={(e) =>
-                setForm((p) => ({
-                  ...p,
-                  model_key: e.target.value || undefined,
-                }))
-              }
-              className="w-full rounded border border-zinc-700 bg-zinc-900 px-3 py-2 text-zinc-100 focus:border-zinc-600 focus:outline-none focus:ring-1 focus:ring-zinc-600"
-            >
-              <option value="">Select model…</option>
-              {models
-                .filter((m) => m.formats_supported.includes(form.format ?? "reel"))
-                .map((m) => {
-                  const isDefault =
-                    m.default_for_format[form.format ?? "reel"] ?? false;
-                  return (
-                    <option key={m.key} value={m.key}>
-                      {m.key}
-                      {isDefault ? " (recommended)" : ""}
-                    </option>
-                  );
-                })}
-            </select>
+            <div className="space-y-1.5">
+              <select
+                value={form.model_key ?? ""}
+                onChange={(e) =>
+                  setForm((p) => ({
+                    ...p,
+                    model_key: e.target.value || undefined,
+                  }))
+                }
+                className="w-full rounded border border-zinc-700 bg-zinc-900 px-3 py-2 text-zinc-100 focus:border-zinc-600 focus:outline-none focus:ring-1 focus:ring-zinc-600"
+              >
+                <option value="">Select model…</option>
+                {models
+                  .filter((m) => m.formats_supported.includes(form.format ?? "reel"))
+                  .map((m) => {
+                    const isDefault =
+                      m.default_for_format[form.format ?? "reel"] ?? false;
+                    return (
+                      <option key={m.key} value={m.key}>
+                        {m.key} — {m.short_description} · {m.cost_tier}
+                        {isDefault ? " (recommended)" : ""}
+                      </option>
+                    );
+                  })}
+              </select>
+              {form.model_key && (() => {
+                const m = models.find((x) => x.key === form.model_key);
+                return m?.replicate_page_url ? (
+                  <a
+                    href={m.replicate_page_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-zinc-500 hover:text-zinc-300"
+                  >
+                    view model →
+                  </a>
+                ) : null;
+              })()}
+            </div>
           )}
         </div>
 
