@@ -90,7 +90,10 @@ OPTIONS preflight is handled automatically. Redeploy the Railway **web** service
 
 ### "Failed to fetch jobs" / 500 on /jobs
 
-If the UI shows "Failed to fetch jobs", the API may return 500 when Supabase fails. Check Railway logs for the web service. Ensure:
-- `SUPABASE_URL` and `SUPABASE_SERVICE_KEY` are set
-- Migrations have been run (`npm run db:migrate`)
-- The `jobs` table exists and RLS allows service-role access
+If the UI shows "Failed to fetch jobs", the API may return 500 when Supabase fails. **Root cause:** `column jobs.payload does not exist` — run migration 002:
+
+```bash
+SUPABASE_DB_PASSWORD=<from Supabase dashboard> npm run db:migrate
+```
+
+Or run only 002: `psql` or Supabase SQL Editor: `ALTER TABLE jobs ADD COLUMN IF NOT EXISTS payload JSONB;`
