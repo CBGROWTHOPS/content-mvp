@@ -59,14 +59,9 @@ In each Railway service, set:
 
 **Worker service:** Same as API.
 
-## 6. content-admin (optional)
+## ✓ content-admin (Vercel)
 
-Deploy the Next.js admin separately (Vercel or Railway):
+**Live:** https://content-admin-nine.vercel.app
 
-```bash
-cd content-admin
-# Set NEXT_PUBLIC_API_URL to your deployed API URL
-vercel
-# or
-railway up --service content-admin
-```
+For GitHub auto-deploys, add in Vercel → content-admin project → Settings → Environment Variables:
+- `NEXT_PUBLIC_API_URL` = `https://web-production-4f46b.up.railway.app`
