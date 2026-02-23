@@ -9,7 +9,7 @@
     "db:create-bucket": "node scripts/create-storage-bucket.mjs",
     "dev": "tsx watch src/api/index.ts",
     "dev:worker": "tsx watch src/worker/index.ts",
-    "build": "tsc && cp -r src/brands dist/brands",
+    "build": "tsc && cp -r brands dist/brands",
     "start": "node dist/api/index.js",
     "worker": "node dist/worker/index.js"
   },

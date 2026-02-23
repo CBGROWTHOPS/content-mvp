@@ -64,6 +64,26 @@ export interface BrandProfile {
   primary_cta: string;
 }
 
+export async function fetchBrands(): Promise<
+  { data: Array<{ key: string; display_name: string }> } | { error: string }
+> {
+  try {
+    const res = await fetch(`${getBaseUrl()}/brands`, {
+      cache: "no-store",
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: res.statusText }));
+      return { error: (err as { error?: string }).error ?? res.statusText };
+    }
+    const data = await res.json();
+    return { data: data as Array<{ key: string; display_name: string }> };
+  } catch (e) {
+    return {
+      error: e instanceof Error ? e.message : "Failed to fetch brands",
+    };
+  }
+}
+
 export async function fetchBrand(
   key: string
 ): Promise<{ data: BrandProfile } | { error: string }> {

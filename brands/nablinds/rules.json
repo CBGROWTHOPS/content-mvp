@@ -1,0 +1,15 @@
+{
+  "image_kit": {
+    "style": "Warm neutrals, realistic exposure. No HDR glow. South Florida modern home interior.",
+    "no_text_baked": true,
+    "focus": "Light behavior in space"
+  },
+  "reel_kit": {
+    "camera": "Static camera. Natural light. No flashy transitions.",
+    "structure": "UNCONTROLLED → DESIGNED"
+  },
+  "wide_video_kit": {
+    "project_types": ["high-rise", "single-family", "townhouse"],
+    "tone": "Editorial lookbook. Architectural showcase."
+  }
+}

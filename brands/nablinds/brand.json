@@ -1,0 +1,137 @@
+{
+  "brand_key": "nablinds",
+  "display_name": "NA Blinds",
+  "positioning": "Premium custom window treatments designed as architectural enhancements for luxury homes.",
+  "positioning_tier": "high_end",
+  "primary_cta": "Schedule Design Consultation",
+  "secondary_cta": "Request Private Estimate",
+  "default_micro_label": "NA BLINDS",
+  "target_icp": {
+    "audiences": [
+      "Affluent single family homeowners",
+      "High rise condo owners",
+      "Waterfront property owners",
+      "Modern new builds",
+      "Homeowners upgrading from builder grade blinds"
+    ],
+    "geographic_context": "South Florida",
+    "regions": ["Miami", "Fort Lauderdale", "Palm Beach"],
+    "environmental_cues": "Environmental cues must reflect South Florida climate and architecture."
+  },
+  "voice_profile": {
+    "tone_must_be": [
+      "Calm",
+      "Architectural",
+      "Intentional",
+      "Controlled",
+      "Confident",
+      "Understated"
+    ],
+    "tone_never": [
+      "Hype",
+      "Aggressive sales",
+      "Cheap sounding",
+      "Urgent discount heavy language",
+      "Exclamation marks",
+      "Flashy"
+    ],
+    "language_feel": [
+      "Design firm",
+      "Architect",
+      "Luxury home consultant"
+    ]
+  },
+  "voice_rules": [
+    "Calm, deliberate. Editorial feel, not ad creative.",
+    "No discount framing. No aggressive text motion."
+  ],
+  "conversion_rules": [
+    "Focus on light behavior and window architecture.",
+    "Aspirational, premium. No sales tone in body copy."
+  ],
+  "visual_identity": {
+    "color_palette": [
+      "Warm neutrals",
+      "Deep charcoal",
+      "Soft warm white",
+      "Subtle warm gold accent"
+    ]
+  },
+  "lighting_rules": {
+    "required": [
+      "Natural Florida light",
+      "Soft diffused exposure"
+    ],
+    "prohibited": [
+      "HDR glow",
+      "Unrealistic dynamic range",
+      "Artificial dramatic studio lighting"
+    ]
+  },
+  "scene_requirements": {
+    "required": [
+      "Real modern homes",
+      "8 to 12 foot ceilings minimum",
+      "Clean architecture",
+      "Light wood or neutral flooring",
+      "Cream, beige, stone interiors",
+      "Slim black or aluminum window frames",
+      "Palm trees, skyline, or waterfront visible when context appropriate"
+    ],
+    "prohibited_visuals": [
+      "Over staged showroom symmetry",
+      "Plastic looking blinds",
+      "Cluttered suburban rooms",
+      "Low ceiling track homes",
+      "Over exposed windows",
+      "Stock image aesthetic"
+    ]
+  },
+  "offer_positioning": {
+    "primary_cta": "Schedule Design Consultation",
+    "secondary_cta": "Request Private Estimate",
+    "prohibited_phrases": [
+      "Free install",
+      "Lowest price",
+      "Budget",
+      "Cheap blinds",
+      "Huge sale",
+      "Blowout"
+    ],
+    "discount_guidance": "Restrained and subtle if used at all."
+  },
+  "forbidden_language": [
+    "cheap",
+    "discount",
+    "sale",
+    "limited time"
+  ],
+  "hook_framework_bias": {
+    "focus_on": [
+      "Light control",
+      "Architectural refinement",
+      "Upgrading builder grade",
+      "Smart home integration",
+      "Privacy without sacrificing views",
+      "Elevated living"
+    ],
+    "avoid": [
+      "Price",
+      "Clearance",
+      "Inventory liquidation"
+    ]
+  },
+  "collections": [
+    { "key": "sheer", "label": "SHEER", "tagline": "Light filtered" },
+    { "key": "soft", "label": "SOFT", "tagline": "Soft diffusion" },
+    { "key": "dark", "label": "DARK", "tagline": "Full control" },
+    { "key": "smart", "label": "SMART", "tagline": "Motorized" }
+  ],
+  "allowed_formats": ["image", "image_kit", "reel", "reel_kit", "wide_video_kit"],
+  "guardrails": {
+    "exposure_control": ["No over-exposed windows", "Natural Florida light only"],
+    "composition": ["Clean architecture", "Minimal staging"],
+    "animation_limitations": ["No flashy transitions", "Static or subtle motion"],
+    "typography": ["No exclamation marks", "Understated, architectural feel"]
+  }
+}

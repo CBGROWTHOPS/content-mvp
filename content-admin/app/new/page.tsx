@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { createJob, fetchModels, type ApiModel } from "@/lib/api";
+import { createJob, fetchModels, fetchBrands, fetchBrand, type ApiModel } from "@/lib/api";
 import type {
   JobInput,
   JobFormat,
@@ -86,6 +86,7 @@ export default function NewJobPage() {
   const [variablesError, setVariablesError] = useState<string | null>(null);
 
   const [form, setForm] = useState<Partial<JobInput>>({
+    brand_key: "",
     brand: "",
     format: "reel",
     length_seconds: 6,
@@ -98,11 +99,15 @@ export default function NewJobPage() {
   });
   const [variablesRaw, setVariablesRaw] = useState(REEL_VARIABLES_JSON);
   const [models, setModels] = useState<ApiModel[]>([]);
+  const [brands, setBrands] = useState<Array<{ key: string; display_name: string }>>([]);
   const [useDefaultModel, setUseDefaultModel] = useState(true);
 
   useEffect(() => {
     fetchModels().then((r) => {
       if ("data" in r) setModels(r.data);
+    });
+    fetchBrands().then((r) => {
+      if ("data" in r) setBrands(r.data);
     });
   }, []);
 
@@ -138,7 +143,8 @@ export default function NewJobPage() {
     }
 
     const basePayload: Partial<JobInput> = {
-      brand: form.brand ?? "",
+      brand_key: form.brand_key ?? form.brand ?? "",
+      brand: form.brand_key ?? form.brand ?? "",
       format: form.format ?? "reel",
       objective: form.objective ?? "lead_generation",
       hook_type: form.hook_type ?? "contrast",
@@ -188,7 +194,7 @@ export default function NewJobPage() {
       };
     }
 
-    if (!payload.brand) {
+    if (!payload.brand_key && !payload.brand) {
       setError("Brand is required");
       return;
     }
@@ -227,14 +233,25 @@ export default function NewJobPage() {
           <label className="mb-1 block text-sm font-medium text-zinc-400">
             Brand
           </label>
-          <input
-            type="text"
-            value={form.brand}
-            onChange={(e) => setForm((p) => ({ ...p, brand: e.target.value }))}
-            className="w-full rounded border border-zinc-700 bg-zinc-900 px-3 py-2 text-zinc-100 placeholder-zinc-500 focus:border-zinc-600 focus:outline-none focus:ring-1 focus:ring-zinc-600"
-            placeholder="e.g. NA Blinds"
+          <select
+            value={form.brand_key ?? form.brand ?? ""}
+            onChange={(e) =>
+              setForm((p) => ({
+                ...p,
+                brand_key: e.target.value,
+                brand: e.target.value,
+              }))
+            }
+            className="w-full rounded border border-zinc-700 bg-zinc-900 px-3 py-2 text-zinc-100 focus:border-zinc-600 focus:outline-none focus:ring-1 focus:ring-zinc-600"
             required
-          />
+          >
+            <option value="">Select brand…</option>
+            {brands.map((b) => (
+              <option key={b.key} value={b.key}>
+                {b.display_name || b.key}
+              </option>
+            ))}
+          </select>
         </div>
 
         <div>

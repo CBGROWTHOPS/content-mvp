@@ -11,24 +11,31 @@ const formatEnum = z.enum([
 ]);
 const qualityEnum = z.enum(["draft", "final"]);
 const aspectRatioEnum = z.enum(["1:1", "4:5", "9:16", "16:9"]);
-const collectionEnum = z.enum(["sheer", "soft", "dark", "smart"]);
-const reelKitHookEnum = z.enum(["contrast", "concept", "motorized_demo"]);
-const wideVideoProjectEnum = z.enum(["high-rise", "single-family", "townhouse"]);
+const hookTypeEnum = z.enum([
+  "contrast",
+  "question",
+  "pain_point",
+  "statistic",
+  "story",
+  "concept",
+  "motorized_demo",
+]);
 
 const baseJobSchema = z.object({
-  brand: z.string().min(1, "Brand is required"),
+  brand_key: z.string().optional(),
+  brand: z.string().optional(), // backward compat
   format: formatEnum,
   model_key: z.string().optional(),
-  model: z.string().optional(), // backward compat: used as model_key override
+  model: z.string().optional(),
   quality: qualityEnum.optional(),
   objective: z.enum(["lead_generation", "awareness", "conversion", "engagement"]),
-  hook_type: z.enum(["contrast", "question", "pain_point", "statistic", "story"]),
+  hook_type: hookTypeEnum.optional(),
   length_seconds: z.number().int().positive().max(60).optional(),
   scene_structure: z.number().int().min(1).max(10).optional(),
   aspect_ratio: aspectRatioEnum.optional(),
-  collection: collectionEnum.optional(),
-  reel_kit_hook_type: reelKitHookEnum.optional(),
-  wide_video_project_type: wideVideoProjectEnum.optional(),
+  collection: z.string().optional(),
+  reel_kit_hook_type: z.enum(["contrast", "concept", "motorized_demo"]).optional(),
+  wide_video_project_type: z.enum(["high-rise", "single-family", "townhouse"]).optional(),
   variables: z
     .record(z.string(), z.union([z.string(), z.number(), z.boolean()]))
     .default({}),
@@ -36,11 +43,23 @@ const baseJobSchema = z.object({
 
 export const jobSchema = baseJobSchema
   .transform((data) => {
-    const { model, ...rest } = data;
+    const { model, brand, collection, reel_kit_hook_type, wide_video_project_type, variables = {}, ...rest } = data;
+    const brand_key = data.brand_key ?? brand ?? "default";
+    const mergedVars = { ...variables };
+    if (collection) mergedVars.collection = collection;
+    if (reel_kit_hook_type) mergedVars.reel_kit_hook = reel_kit_hook_type;
+    if (wide_video_project_type) mergedVars.project_type = wide_video_project_type;
+    const hook_type = reel_kit_hook_type ?? data.hook_type;
     return {
       ...rest,
+      brand_key,
       model_key: data.model_key ?? model ?? undefined,
+      hook_type,
+      variables: mergedVars,
     };
+  })
+  .refine((data) => data.brand_key && data.brand_key.length > 0, {
+    message: "brand_key or brand is required",
   })
   .refine(
     (data) => {

@@ -40,7 +40,7 @@ router.post("/generate", validateJobBody, async (req: Request, res: Response) =>
       .from("jobs")
       .insert({
         status: "pending",
-        brand: payload.brand,
+        brand: payload.brand_key ?? payload.brand,
         format: payload.format,
         objective: payload.objective,
         model: selected.key,

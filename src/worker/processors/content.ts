@@ -1,5 +1,5 @@
 import type { Job } from "bullmq";
-import { buildPrompt } from "../../prompts/index.js";
+import { buildPrompt } from "../../core/prompts.js";
 import { runReplicate } from "../../lib/replicate.js";
 import { supabase, STORAGE_BUCKET, getStoragePath } from "../../lib/supabase.js";
 import type { QueueJobPayload } from "../../types/index.js";
@@ -13,12 +13,7 @@ export async function processContentJob(job: Job<QueueJobPayload, void, string>)
       .update({ status: "processing", updated_at: new Date().toISOString() })
       .eq("id", jobId);
 
-    const prompt = buildPrompt(
-      payload.format,
-      payload.hook_type,
-      payload.variables,
-      payload
-    );
+    const prompt = await buildPrompt(payload);
 
     const { url: replicateUrl, cost } = await runReplicate(
       payload.provider_model_id,
@@ -34,7 +29,7 @@ export async function processContentJob(job: Job<QueueJobPayload, void, string>)
     const ext = isVideo ? "mp4" : "png";
     const filename = `output.${ext}`;
     const storagePath = getStoragePath(
-      payload.brand,
+      payload.brand_key,
       payload.format,
       jobId,
       filename
