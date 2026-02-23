@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -38,6 +39,11 @@ export default function RootLayout({
             </nav>
           </header>
           <main>{children}</main>
+          <footer className="mt-12 border-t border-zinc-800 pt-6 text-center text-sm text-zinc-500">
+            <Link href="/docs" className="text-zinc-400 hover:text-white">
+              Documentation
+            </Link>
+          </footer>
         </div>
       </body>
     </html>
