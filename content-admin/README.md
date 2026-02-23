@@ -2,6 +2,8 @@
 
 Minimal internal dashboard for the Content Generation API. Connects to the backend on Railway.
 
+**Live:** https://content-admin-nine.vercel.app
+
 ## Setup
 
 ```bash
@@ -9,7 +11,7 @@ npm install
 cp .env.example .env.local
 ```
 
-Set `NEXT_PUBLIC_API_URL` to your Railway backend URL (e.g. `https://your-app.railway.app`).
+Set `NEXT_PUBLIC_API_URL` to your Railway backend URL (e.g. `https://web-production-4f46b.up.railway.app`).
 
 ## Run
 
