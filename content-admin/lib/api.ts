@@ -204,6 +204,30 @@ export async function generateContent(
   }
 }
 
+export async function upgradePrompt(
+  prompt: string
+): Promise<{ data: { upgradedPrompt: string } } | { error: string }> {
+  try {
+    const res = await fetch(`${getBaseUrl()}/upgrade-prompt`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prompt }),
+    });
+    const json = (await res.json().catch(() => ({}))) as {
+      upgradedPrompt?: string;
+      error?: string;
+    };
+    if (!res.ok) {
+      return { error: json.error ?? res.statusText };
+    }
+    return { data: { upgradedPrompt: json.upgradedPrompt ?? prompt } };
+  } catch (e) {
+    return {
+      error: e instanceof Error ? e.message : "Failed to upgrade prompt",
+    };
+  }
+}
+
 export async function createJob(
   payload: object
 ): Promise<{ data: { id: string; status: string } } | { error: string }> {

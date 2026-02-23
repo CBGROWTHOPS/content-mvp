@@ -40,7 +40,7 @@ export function ReelBlueprintPanel({ data, onCopy }: ReelBlueprintPanelProps) {
   if (!data) {
     return (
       <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-6">
-        <h3 className="mb-3 text-sm font-medium text-zinc-400">Reel Blueprint</h3>
+        <h3 className="mb-3 text-sm font-medium text-zinc-400">Reel Storyboard</h3>
         <p className="text-sm text-zinc-500">
           Select a brand and strategy to generate.
         </p>
@@ -71,7 +71,7 @@ export function ReelBlueprintPanel({ data, onCopy }: ReelBlueprintPanelProps) {
   return (
     <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-6">
       <div className="mb-4 flex items-center justify-between">
-        <h3 className="text-sm font-medium text-zinc-400">Reel Blueprint</h3>
+        <h3 className="text-sm font-medium text-zinc-400">Reel Storyboard</h3>
         <CopyButton
           onClick={() => handleCopy(fullText, "full")}
           label={copied === "full" ? "Copied" : "Copy All"}

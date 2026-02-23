@@ -461,3 +461,28 @@ export async function generateStructuredContent(
     tokenUsage,
   };
 }
+
+/** Upgrade a prompt for better image or video generation. */
+export async function upgradePrompt(prompt: string): Promise<string> {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    throw new Error("OPENAI_API_KEY is not set");
+  }
+
+  const openai = new OpenAI({ apiKey });
+  const completion = await openai.chat.completions.create({
+    model: "gpt-4o-mini",
+    messages: [
+      {
+        role: "system",
+        content:
+          "You are a prompt engineer. Given a user's rough prompt for image or video generation, return an improved, more detailed, and more effective prompt. " +
+          "Add specific visual details, style cues, composition, lighting, and mood. Keep it concise but rich. Return ONLY the upgraded prompt, no explanation.",
+      },
+      { role: "user", content: prompt },
+    ],
+  });
+
+  const upgraded = completion.choices[0]?.message?.content?.trim();
+  return upgraded ?? prompt;
+}

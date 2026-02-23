@@ -13,7 +13,7 @@ import type { GenerateResponse } from "@/types/generate";
 
 const DEBOUNCE_MS = 500;
 
-export default function ReelBlueprintToolPage() {
+export default function ReelStoryboardToolPage() {
   const [brandId, setBrandId] = useState("");
   const [brands, setBrands] = useState<Array<{ key: string; display_name: string }>>([]);
   const [brand, setBrand] = useState<BrandProfile | null>(null);
@@ -89,7 +89,7 @@ export default function ReelBlueprintToolPage() {
       <div className="mb-4 flex items-center gap-2 text-sm text-zinc-500">
         <Link href="/tools" className="hover:text-zinc-300">Tools</Link>
         <span>/</span>
-        <span className="text-zinc-300">Reel Blueprint</span>
+        <span className="text-zinc-300">Reel Storyboard</span>
       </div>
       <div className="flex flex-1 gap-6 overflow-hidden">
         <div className="w-72 shrink-0 overflow-y-auto rounded-lg border border-zinc-800 bg-zinc-900/30 p-4">

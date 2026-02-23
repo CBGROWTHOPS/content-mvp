@@ -3,7 +3,7 @@ import { contentQueue } from "../../lib/queue.js";
 import { supabase } from "../../lib/supabase.js";
 import { selectModel, getModelsForApi } from "../../lib/models.js";
 import { validateJobBody } from "../middleware/validate.js";
-import { generateStructuredContent, getPromptForEstimate } from "../../lib/llm.js";
+import { generateStructuredContent, getPromptForEstimate, upgradePrompt } from "../../lib/llm.js";
 import { loadBrand } from "../../lib/brandRegistry.js";
 import { estimateTokenCount } from "../../lib/tokenEstimate.js";
 
@@ -46,6 +46,22 @@ router.get("/generate-content/estimate", (req: Request, res: Response) => {
 
 router.get("/models", (_req: Request, res: Response) => {
   res.json(getModelsForApi());
+});
+
+router.post("/upgrade-prompt", async (req: Request, res: Response) => {
+  try {
+    const { prompt } = req.body;
+    if (!prompt || typeof prompt !== "string") {
+      res.status(400).json({ error: "prompt (string) required" });
+      return;
+    }
+    const upgraded = await upgradePrompt(prompt);
+    res.json({ upgradedPrompt: upgraded });
+  } catch (err) {
+    console.error("Upgrade prompt error:", err);
+    const msg = err instanceof Error ? err.message : "Internal server error";
+    res.status(500).json({ error: msg });
+  }
 });
 
 router.post("/generate-content", async (req: Request, res: Response) => {
