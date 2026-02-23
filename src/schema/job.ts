@@ -1,8 +1,19 @@
 import { z } from "zod";
 
-const formatEnum = z.enum(["reel", "story", "post", "image"]);
+const formatEnum = z.enum([
+  "reel",
+  "story",
+  "post",
+  "image",
+  "image_kit",
+  "reel_kit",
+  "wide_video_kit",
+]);
 const qualityEnum = z.enum(["draft", "final"]);
 const aspectRatioEnum = z.enum(["1:1", "4:5", "9:16", "16:9"]);
+const collectionEnum = z.enum(["sheer", "soft", "dark", "smart"]);
+const reelKitHookEnum = z.enum(["contrast", "concept", "motorized_demo"]);
+const wideVideoProjectEnum = z.enum(["high-rise", "single-family", "townhouse"]);
 
 const baseJobSchema = z.object({
   brand: z.string().min(1, "Brand is required"),
@@ -15,6 +26,9 @@ const baseJobSchema = z.object({
   length_seconds: z.number().int().positive().max(60).optional(),
   scene_structure: z.number().int().min(1).max(10).optional(),
   aspect_ratio: aspectRatioEnum.optional(),
+  collection: collectionEnum.optional(),
+  reel_kit_hook_type: reelKitHookEnum.optional(),
+  wide_video_project_type: wideVideoProjectEnum.optional(),
   variables: z
     .record(z.string(), z.union([z.string(), z.number(), z.boolean()]))
     .default({}),
@@ -48,6 +62,36 @@ export const jobSchema = baseJobSchema
       return true;
     },
     { message: "aspect_ratio required for image format" }
+  )
+  .refine(
+    (data) => {
+      if (data.format === "image_kit") {
+        return data.aspect_ratio === "4:5" || !data.aspect_ratio;
+      }
+      return true;
+    },
+    { message: "image_kit uses 4:5 aspect ratio" }
+  )
+  .refine(
+    (data) => {
+      if (data.format === "reel_kit") {
+        return (
+          typeof data.length_seconds === "number" ||
+          data.length_seconds === undefined
+        );
+      }
+      return true;
+    },
+    { message: "length_seconds required for reel_kit (defaults to 6)" }
+  )
+  .refine(
+    (data) => {
+      if (data.format === "wide_video_kit") {
+        return data.aspect_ratio === "16:9" || !data.aspect_ratio;
+      }
+      return true;
+    },
+    { message: "wide_video_kit uses 16:9 aspect ratio" }
   );
 
 export type JobInput = z.infer<typeof jobSchema>;

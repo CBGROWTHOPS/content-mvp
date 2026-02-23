@@ -1,4 +1,11 @@
-export type JobFormat = "reel" | "story" | "post" | "image";
+export type JobFormat =
+  | "reel"
+  | "story"
+  | "post"
+  | "image"
+  | "image_kit"
+  | "reel_kit"
+  | "wide_video_kit";
 export type Quality = "draft" | "final";
 
 export interface ModelConfig {
@@ -13,15 +20,15 @@ export interface ModelConfig {
 export const MODEL_CONFIG: Record<string, ModelConfig> = {
   "minimax-video-01": {
     provider_model_id: "minimax/video-01",
-    formats_supported: ["reel", "story", "post"],
-    default_for_format: { reel: true },
+    formats_supported: ["reel", "story", "post", "reel_kit", "wide_video_kit"],
+    default_for_format: { reel: true, reel_kit: true, wide_video_kit: true },
     cost_tier: "~$0.20/video",
     short_description: "High-quality text-to-video, 720p, up to 6s",
     replicate_page_url: "https://replicate.com/minimax/video-01",
   },
   "stable-video-diffusion": {
     provider_model_id: "stability-ai/stable-video-diffusion",
-    formats_supported: ["reel", "story", "post"],
+    formats_supported: ["reel", "story", "post", "reel_kit", "wide_video_kit"],
     default_for_format: {},
     cost_tier: "~$0.10/video",
     short_description: "Image-to-video animation from stills",
@@ -29,15 +36,15 @@ export const MODEL_CONFIG: Record<string, ModelConfig> = {
   },
   "flux-schnell": {
     provider_model_id: "black-forest-labs/flux-schnell",
-    formats_supported: ["image"],
-    default_for_format: { image: true },
+    formats_supported: ["image", "image_kit"],
+    default_for_format: { image: true, image_kit: true },
     cost_tier: "~$0.003/image",
     short_description: "Fast text-to-image, 1–4 steps, Apache 2.0",
     replicate_page_url: "https://replicate.com/black-forest-labs/flux-schnell",
   },
   "flux-dev": {
     provider_model_id: "black-forest-labs/flux-dev",
-    formats_supported: ["image"],
+    formats_supported: ["image", "image_kit"],
     default_for_format: {},
     cost_tier: "~$0.03/image",
     short_description: "High-quality open-weight, strong prompt adherence",
@@ -45,7 +52,7 @@ export const MODEL_CONFIG: Record<string, ModelConfig> = {
   },
   "sdxl": {
     provider_model_id: "stability-ai/sdxl",
-    formats_supported: ["image"],
+    formats_supported: ["image", "image_kit"],
     default_for_format: {},
     cost_tier: "~$0.02/image",
     short_description: "Stable Diffusion XL, versatile and widely used",

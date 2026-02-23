@@ -53,7 +53,23 @@ export default function JobDetailPage() {
 
     if (job.format === "image") {
       basePayload.aspect_ratio = job.payload.aspect_ratio ?? "1:1";
-    } else {
+    } else if (job.format === "image_kit") {
+      basePayload.aspect_ratio = "4:5";
+      basePayload.collection = job.payload.collection;
+    } else if (job.format === "reel_kit") {
+      basePayload.aspect_ratio = "9:16";
+      basePayload.length_seconds = job.payload.length_seconds ?? 6;
+      basePayload.reel_kit_hook_type =
+        job.payload.reel_kit_hook_type ?? "contrast";
+    } else if (job.format === "wide_video_kit") {
+      basePayload.aspect_ratio = "16:9";
+      basePayload.wide_video_project_type =
+        job.payload.wide_video_project_type ?? "single-family";
+    } else if (
+      job.format === "reel" ||
+      job.format === "story" ||
+      job.format === "post"
+    ) {
       basePayload.length_seconds = job.payload.length_seconds ?? 6;
       basePayload.scene_structure = job.payload.scene_structure ?? 2;
     }

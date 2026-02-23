@@ -19,8 +19,19 @@ router.post("/generate", validateJobBody, async (req: Request, res: Response) =>
       payload.model_key
     );
 
+    const kitDefaults: Record<string, unknown> = {};
+    if (payload.format === "image_kit") {
+      kitDefaults.aspect_ratio = payload.aspect_ratio ?? "4:5";
+    } else if (payload.format === "reel_kit") {
+      kitDefaults.aspect_ratio = payload.aspect_ratio ?? "9:16";
+      kitDefaults.length_seconds = payload.length_seconds ?? 6;
+    } else if (payload.format === "wide_video_kit") {
+      kitDefaults.aspect_ratio = payload.aspect_ratio ?? "16:9";
+    }
+
     const enrichedPayload = {
       ...payload,
+      ...kitDefaults,
       model_key: selected.key,
       provider_model_id: selected.provider_model_id,
     };

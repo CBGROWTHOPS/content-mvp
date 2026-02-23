@@ -1,6 +1,17 @@
 export type JobStatus = "pending" | "processing" | "completed" | "failed";
 
-export type JobFormat = "reel" | "story" | "post" | "image";
+export type JobFormat =
+  | "reel"
+  | "story"
+  | "post"
+  | "image"
+  | "image_kit"
+  | "reel_kit"
+  | "wide_video_kit";
+
+export type Collection = "sheer" | "soft" | "dark" | "smart";
+export type ReelKitHookType = "contrast" | "concept" | "motorized_demo";
+export type WideVideoProjectType = "high-rise" | "single-family" | "townhouse";
 
 export type JobObjective =
   | "lead_generation"
@@ -23,6 +34,9 @@ export interface JobInput {
   length_seconds?: number;
   scene_structure?: number;
   aspect_ratio?: AspectRatio;
+  collection?: Collection;
+  reel_kit_hook_type?: ReelKitHookType;
+  wide_video_project_type?: WideVideoProjectType;
   objective: JobObjective;
   hook_type: HookType;
   model_key?: string;

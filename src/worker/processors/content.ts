@@ -13,7 +13,12 @@ export async function processContentJob(job: Job<QueueJobPayload, void, string>)
       .update({ status: "processing", updated_at: new Date().toISOString() })
       .eq("id", jobId);
 
-    const prompt = buildPrompt(payload.format, payload.hook_type, payload.variables);
+    const prompt = buildPrompt(
+      payload.format,
+      payload.hook_type,
+      payload.variables,
+      payload
+    );
 
     const { url: replicateUrl, cost } = await runReplicate(
       payload.provider_model_id,
@@ -24,7 +29,8 @@ export async function processContentJob(job: Job<QueueJobPayload, void, string>)
       }
     );
 
-    const isVideo = payload.format !== "image";
+    const isVideo =
+      payload.format !== "image" && payload.format !== "image_kit";
     const ext = isVideo ? "mp4" : "png";
     const filename = `output.${ext}`;
     const storagePath = getStoragePath(
@@ -56,7 +62,10 @@ export async function processContentJob(job: Job<QueueJobPayload, void, string>)
       .getPublicUrl(storagePath);
     const publicUrl = urlData.publicUrl;
 
-    const assetType = payload.format === "image" ? "image" : "video";
+    const assetType =
+      payload.format === "image" || payload.format === "image_kit"
+        ? "image"
+        : "video";
     await supabase.from("assets").insert({
       job_id: jobId,
       type: assetType,

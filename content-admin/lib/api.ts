@@ -57,6 +57,34 @@ export interface ApiModel {
   replicate_page_url: string;
 }
 
+export interface BrandProfile {
+  brand_key: string;
+  positioning: string;
+  collections: Array<{ key: string; label: string; tagline: string }>;
+  primary_cta: string;
+}
+
+export async function fetchBrand(
+  key: string
+): Promise<{ data: BrandProfile } | { error: string }> {
+  try {
+    const res = await fetch(`${getBaseUrl()}/brands/${key}`, {
+      cache: "no-store",
+    });
+    if (!res.ok) {
+      if (res.status === 404) return { error: "Brand not found" };
+      const err = await res.json().catch(() => ({ error: res.statusText }));
+      return { error: (err as { error?: string }).error ?? res.statusText };
+    }
+    const data = await res.json();
+    return { data: data as BrandProfile };
+  } catch (e) {
+    return {
+      error: e instanceof Error ? e.message : "Failed to fetch brand",
+    };
+  }
+}
+
 export async function fetchModels(): Promise<
   { data: ApiModel[] } | { error: string }
 > {

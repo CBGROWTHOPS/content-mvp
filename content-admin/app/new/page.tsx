@@ -9,11 +9,36 @@ import type {
   JobObjective,
   HookType,
   AspectRatio,
+  Collection,
+  ReelKitHookType,
+  WideVideoProjectType,
 } from "@/types/job";
 
 const FORMATS: { value: JobFormat; label: string }[] = [
   { value: "reel", label: "Reel" },
   { value: "image", label: "Image" },
+  { value: "image_kit", label: "Image Kit (4:5)" },
+  { value: "reel_kit", label: "Reel Kit (9:16)" },
+  { value: "wide_video_kit", label: "Wide Video Kit (16:9)" },
+];
+
+const COLLECTIONS: { value: Collection; label: string }[] = [
+  { value: "sheer", label: "SHEER" },
+  { value: "soft", label: "SOFT" },
+  { value: "dark", label: "DARK" },
+  { value: "smart", label: "SMART" },
+];
+
+const REEL_KIT_HOOKS: { value: ReelKitHookType; label: string }[] = [
+  { value: "contrast", label: "Contrast" },
+  { value: "concept", label: "Concept" },
+  { value: "motorized_demo", label: "Motorized demo" },
+];
+
+const WIDE_VIDEO_PROJECTS: { value: WideVideoProjectType; label: string }[] = [
+  { value: "high-rise", label: "High-rise" },
+  { value: "single-family", label: "Single-family" },
+  { value: "townhouse", label: "Townhouse" },
 ];
 
 const OBJECTIVES: { value: JobObjective; label: string }[] = [
@@ -38,20 +63,21 @@ const ASPECT_RATIOS: { value: AspectRatio; label: string }[] = [
   { value: "16:9", label: "16:9" },
 ];
 
-const REEL_VARIABLES = {
-  location: "",
-  product: "",
-  cta: "",
-};
-
-const IMAGE_VARIABLES = {
-  product: "",
-  style: "",
-  cta: "",
-};
+const REEL_VARIABLES = { location: "", product: "", cta: "" };
+const IMAGE_VARIABLES = { product: "", style: "", cta: "" };
+const IMAGE_KIT_VARIABLES = { body: "" };
+const REEL_KIT_VARIABLES = { concept: "" };
+const WIDE_VIDEO_KIT_VARIABLES = { theme: "" };
 
 const REEL_VARIABLES_JSON = JSON.stringify(REEL_VARIABLES, null, 2);
 const IMAGE_VARIABLES_JSON = JSON.stringify(IMAGE_VARIABLES, null, 2);
+const IMAGE_KIT_VARIABLES_JSON = JSON.stringify(IMAGE_KIT_VARIABLES, null, 2);
+const REEL_KIT_VARIABLES_JSON = JSON.stringify(REEL_KIT_VARIABLES, null, 2);
+const WIDE_VIDEO_KIT_VARIABLES_JSON = JSON.stringify(
+  WIDE_VIDEO_KIT_VARIABLES,
+  null,
+  2
+);
 
 export default function NewJobPage() {
   const router = useRouter();
@@ -81,9 +107,17 @@ export default function NewJobPage() {
   }, []);
 
   useEffect(() => {
-    setVariablesRaw(
-      form.format === "image" ? IMAGE_VARIABLES_JSON : REEL_VARIABLES_JSON
-    );
+    const v =
+      form.format === "image"
+        ? IMAGE_VARIABLES_JSON
+        : form.format === "image_kit"
+          ? IMAGE_KIT_VARIABLES_JSON
+          : form.format === "reel_kit"
+            ? REEL_KIT_VARIABLES_JSON
+            : form.format === "wide_video_kit"
+              ? WIDE_VIDEO_KIT_VARIABLES_JSON
+              : REEL_VARIABLES_JSON;
+    setVariablesRaw(v);
   }, [form.format]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -111,6 +145,12 @@ export default function NewJobPage() {
       variables,
     };
 
+    const fmt = form.format ?? "reel";
+    if (fmt !== "reel" && fmt !== "image" && fmt !== "story" && fmt !== "post") {
+      basePayload.objective = "lead_generation";
+      basePayload.hook_type = "contrast";
+    }
+
     if (!useDefaultModel && form.model_key) {
       basePayload.model_key = form.model_key;
     }
@@ -120,6 +160,25 @@ export default function NewJobPage() {
       payload = {
         ...basePayload,
         aspect_ratio: form.aspect_ratio ?? "1:1",
+      };
+    } else if (form.format === "image_kit") {
+      payload = {
+        ...basePayload,
+        aspect_ratio: "4:5",
+        collection: form.collection,
+      };
+    } else if (form.format === "reel_kit") {
+      payload = {
+        ...basePayload,
+        aspect_ratio: "9:16",
+        length_seconds: Number(form.length_seconds) || 6,
+        reel_kit_hook_type: form.reel_kit_hook_type ?? "contrast",
+      };
+    } else if (form.format === "wide_video_kit") {
+      payload = {
+        ...basePayload,
+        aspect_ratio: "16:9",
+        wide_video_project_type: form.wide_video_project_type ?? "single-family",
       };
     } else {
       payload = {
@@ -148,6 +207,10 @@ export default function NewJobPage() {
 
   const isReel = form.format === "reel";
   const isImage = form.format === "image";
+  const isImageKit = form.format === "image_kit";
+  const isReelKit = form.format === "reel_kit";
+  const isWideVideoKit = form.format === "wide_video_kit";
+  const isMvpFormat = isReel || isImage;
 
   return (
     <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-6">
@@ -192,6 +255,99 @@ export default function NewJobPage() {
             ))}
           </select>
         </div>
+
+        {isImageKit && (
+          <div>
+            <label className="mb-1 block text-sm font-medium text-zinc-400">
+              Collection
+            </label>
+            <select
+              value={form.collection ?? ""}
+              onChange={(e) =>
+                setForm((p) => ({
+                  ...p,
+                  collection: (e.target.value || undefined) as Collection | undefined,
+                }))
+              }
+              className="w-full rounded border border-zinc-700 bg-zinc-900 px-3 py-2 text-zinc-100 focus:border-zinc-600 focus:outline-none focus:ring-1 focus:ring-zinc-600"
+            >
+              <option value="">None</option>
+              {COLLECTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        {isReelKit && (
+          <>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-zinc-400">
+                Length (seconds)
+              </label>
+              <input
+                type="number"
+                min={1}
+                max={60}
+                value={form.length_seconds ?? 6}
+                onChange={(e) =>
+                  setForm((p) => ({
+                    ...p,
+                    length_seconds: parseInt(e.target.value, 10) || 6,
+                  }))
+                }
+                className="w-full rounded border border-zinc-700 bg-zinc-900 px-3 py-2 text-zinc-100 focus:border-zinc-600 focus:outline-none focus:ring-1 focus:ring-zinc-600"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-zinc-400">
+                Hook type
+              </label>
+              <select
+                value={form.reel_kit_hook_type ?? "contrast"}
+                onChange={(e) =>
+                  setForm((p) => ({
+                    ...p,
+                    reel_kit_hook_type: e.target.value as ReelKitHookType,
+                  }))
+                }
+                className="w-full rounded border border-zinc-700 bg-zinc-900 px-3 py-2 text-zinc-100 focus:border-zinc-600 focus:outline-none focus:ring-1 focus:ring-zinc-600"
+              >
+                {REEL_KIT_HOOKS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </>
+        )}
+
+        {isWideVideoKit && (
+          <div>
+            <label className="mb-1 block text-sm font-medium text-zinc-400">
+              Project type
+            </label>
+            <select
+              value={form.wide_video_project_type ?? "single-family"}
+              onChange={(e) =>
+                setForm((p) => ({
+                  ...p,
+                  wide_video_project_type: e.target.value as WideVideoProjectType,
+                }))
+              }
+              className="w-full rounded border border-zinc-700 bg-zinc-900 px-3 py-2 text-zinc-100 focus:border-zinc-600 focus:outline-none focus:ring-1 focus:ring-zinc-600"
+            >
+              {WIDE_VIDEO_PROJECTS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
         {isReel && (
           <>
@@ -259,46 +415,53 @@ export default function NewJobPage() {
           </div>
         )}
 
-        <div>
-          <label className="mb-1 block text-sm font-medium text-zinc-400">
-            Objective
-          </label>
-          <select
-            value={form.objective}
-            onChange={(e) =>
-              setForm((p) => ({
-                ...p,
-                objective: e.target.value as JobObjective,
-              }))
-            }
-            className="w-full rounded border border-zinc-700 bg-zinc-900 px-3 py-2 text-zinc-100 focus:border-zinc-600 focus:outline-none focus:ring-1 focus:ring-zinc-600"
-          >
-            {OBJECTIVES.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
-        </div>
+        {isMvpFormat && (
+          <>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-zinc-400">
+                Objective
+              </label>
+              <select
+                value={form.objective}
+                onChange={(e) =>
+                  setForm((p) => ({
+                    ...p,
+                    objective: e.target.value as JobObjective,
+                  }))
+                }
+                className="w-full rounded border border-zinc-700 bg-zinc-900 px-3 py-2 text-zinc-100 focus:border-zinc-600 focus:outline-none focus:ring-1 focus:ring-zinc-600"
+              >
+                {OBJECTIVES.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-        <div>
-          <label className="mb-1 block text-sm font-medium text-zinc-400">
-            Hook Type
-          </label>
-          <select
-            value={form.hook_type}
-            onChange={(e) =>
-              setForm((p) => ({ ...p, hook_type: e.target.value as HookType }))
-            }
-            className="w-full rounded border border-zinc-700 bg-zinc-900 px-3 py-2 text-zinc-100 focus:border-zinc-600 focus:outline-none focus:ring-1 focus:ring-zinc-600"
-          >
-            {HOOK_TYPES.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
-        </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-zinc-400">
+                Hook Type
+              </label>
+              <select
+                value={form.hook_type}
+                onChange={(e) =>
+                  setForm((p) => ({
+                    ...p,
+                    hook_type: e.target.value as HookType,
+                  }))
+                }
+                className="w-full rounded border border-zinc-700 bg-zinc-900 px-3 py-2 text-zinc-100 focus:border-zinc-600 focus:outline-none focus:ring-1 focus:ring-zinc-600"
+              >
+                {HOOK_TYPES.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </>
+        )}
 
         <div>
           <div className="mb-2 flex items-center gap-3">
@@ -382,7 +545,13 @@ export default function NewJobPage() {
             placeholder={
               isImage
                 ? '{"product": "...", "style": "...", "cta": "..."}'
-                : '{"location": "...", "product": "...", "cta": "..."}'
+                : isImageKit
+                  ? '{"body": "Architectural window treatment in modern space"}'
+                  : isReelKit
+                    ? '{"concept": "Design Your Light"}'
+                    : isWideVideoKit
+                      ? '{"theme": "Design Your Light"}'
+                      : '{"location": "...", "product": "...", "cta": "..."}'
             }
           />
           {variablesError && (
