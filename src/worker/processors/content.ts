@@ -250,18 +250,11 @@ async function generateReelAssets(
     console.warn(`Music selection/generation failed: ${err instanceof Error ? err.message : err}`);
   }
 
-  // #region agent log
-  fetch('http://127.0.0.1:7622/ingest/6914438b-b125-4fa3-85ef-baac9ba1b5cf',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'bc96f7'},body:JSON.stringify({sessionId:'bc96f7',location:'content.ts:253',message:'Video generation check',data:{reelType,shotCount:blueprint.shots.length,shotsNeedingVideo:blueprint.shots.filter(s=>s.visualSource==='generated_video').length},timestamp:Date.now()})}).catch(()=>{});
-  // #endregion
-
   // Generate video for ANY shots with visualSource=generated_video (not just broll)
   const shotsNeedingVideo = blueprint.shots.filter(shot => shot.visualSource === "generated_video" && shot.videoPrompt);
   
   if (shotsNeedingVideo.length > 0) {
-    // #region agent log
-    fetch('http://127.0.0.1:7622/ingest/6914438b-b125-4fa3-85ef-baac9ba1b5cf',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'bc96f7'},body:JSON.stringify({sessionId:'bc96f7',location:'content.ts:260',message:'Starting video generation',data:{shotsNeedingVideo:shotsNeedingVideo.length,shotIds:shotsNeedingVideo.map(s=>s.shotId)},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
-    
+    console.log(`Video generation: ${shotsNeedingVideo.length} shots need video (reelType=${reelType})`);
     await updateProgress(jobId, "generating_video");
     const videosByShot: Record<string, string> = {};
     
@@ -360,9 +353,7 @@ async function generateReelAssets(
         }
     }
     
-    // #region agent log
-    fetch('http://127.0.0.1:7622/ingest/6914438b-b125-4fa3-85ef-baac9ba1b5cf',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'bc96f7'},body:JSON.stringify({sessionId:'bc96f7',location:'content.ts:356',message:'Video generation complete',data:{videosGenerated:Object.keys(videosByShot).length,videosByShot:Object.keys(videosByShot)},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
+    console.log(`Video generation complete: ${Object.keys(videosByShot).length} videos generated`);
     
     if (Object.keys(videosByShot).length > 0) {
       assets.videosByShot = videosByShot;
