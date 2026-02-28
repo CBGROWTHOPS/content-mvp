@@ -9,6 +9,8 @@ import saveToDriveRouter from "./routes/saveToDrive.js";
 const allowedOrigins = [
   "https://content-admin-nine.vercel.app",
   "http://localhost:3000",
+  "http://localhost:3001",
+  /^http:\/\/localhost:\d+$/, // Any localhost port for dev
   /^https:\/\/content-admin-nine-[a-z0-9-]+\.vercel\.app$/, // Vercel preview
   /^https:\/\/content-admin-.*\.vercel\.app$/, // Vercel automatic aliases
 ];
