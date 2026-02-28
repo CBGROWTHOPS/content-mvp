@@ -1,7 +1,8 @@
 import React from "react";
-import { AbsoluteFill, useCurrentFrame, useVideoConfig, interpolate } from "remotion";
+import { AbsoluteFill } from "remotion";
+import { ShotScene } from "./components/ShotScene";
+import { EndFrame } from "./components/EndFrame";
 
-/** Mirrors ReelBlueprintShot from content-admin/types/generate.ts */
 export interface ReelBlueprintShot {
   shotId: string;
   timeStart: number;
@@ -21,7 +22,6 @@ export interface ReelBlueprintShot {
   assetRequirements?: string[];
 }
 
-/** Mirrors ReelBlueprint from content-admin/types/generate.ts */
 export interface ReelBlueprint {
   format: string;
   durationSeconds: number;
@@ -32,120 +32,93 @@ export interface ReelBlueprint {
   typography?: string;
   deliverables?: string[];
   shots: ReelBlueprintShot[];
+  endFrame?: {
+    headline?: string;
+    cta?: string;
+    brandName?: string;
+  };
 }
 
 const COMPOSITION_ID = "ReelFromBlueprint";
 
-const SHOT_COLORS = [
-  "linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)",
-  "linear-gradient(135deg, #0f3460 0%, #1a1a2e 100%)",
-  "linear-gradient(135deg, #533483 0%, #0f3460 100%)",
-  "linear-gradient(135deg, #e94560 0%, #533483 50%)",
-  "linear-gradient(135deg, #16213e 0%, #e94560 100%)",
-];
-
-function ShotLayer({ blueprint, shotIndex }: { blueprint: ReelBlueprint; shotIndex: number }) {
-  const frame = useCurrentFrame();
-  const { fps } = useVideoConfig();
-  const shot = blueprint.shots[shotIndex];
-  const startFrame = Math.floor(shot.timeStart * fps);
-  const endFrame = Math.floor(shot.timeEnd * fps);
-
-  if (frame < startFrame || frame > endFrame) return null;
-
-  const durationInFrames = endFrame - startFrame;
-  const localFrame = frame - startFrame;
-  const fadeIn = interpolate(localFrame, [0, Math.min(15, durationInFrames / 3)], [0, 1], {
-    extrapolateRight: "clamp",
-  });
-  const textFadeIn = interpolate(localFrame, [5, 20], [0, 1], { extrapolateRight: "clamp" });
-
-  const bgColor = SHOT_COLORS[shotIndex % SHOT_COLORS.length];
-  const textColor = shot.onScreenText?.text ? "#ffffff" : "rgba(255,255,255,0.85)";
-
-  return (
-    <AbsoluteFill
-      style={{
-        background: bgColor,
-        opacity: fadeIn,
-      }}
-    >
-      {/* Scene description as subtle caption */}
-      <div
-        style={{
-          position: "absolute",
-          bottom: 80,
-          left: 40,
-          right: 40,
-          fontSize: 14,
-          color: "rgba(255,255,255,0.6)",
-          fontFamily: "system-ui, sans-serif",
-          opacity: textFadeIn,
-        }}
-      >
-        {shot.sceneDescription}
-      </div>
-
-      {/* Primary on-screen text overlay */}
-      {shot.onScreenText?.text && (
-        <div
-          style={{
-            position: "absolute",
-            top: "50%",
-            left: "50%",
-            transform: "translate(-50%, -50%)",
-            fontSize: 36,
-            fontWeight: 700,
-            color: textColor,
-            textAlign: "center",
-            fontFamily: "system-ui, sans-serif",
-            textShadow: "0 2px 20px rgba(0,0,0,0.5)",
-            opacity: textFadeIn,
-          }}
-        >
-          {shot.onScreenText.text}
-        </div>
-      )}
-
-      {/* Shot label (debug) */}
-      <div
-        style={{
-          position: "absolute",
-          top: 24,
-          left: 24,
-          fontSize: 12,
-          color: "rgba(255,255,255,0.4)",
-          fontFamily: "monospace",
-        }}
-      >
-        {shot.shotType} · {shot.cameraMovement}
-      </div>
-    </AbsoluteFill>
-  );
-}
-
 export function ReelComposition({ blueprint }: { blueprint: ReelBlueprint }) {
+  const { shots, durationSeconds, fps, endFrame } = blueprint;
+  const totalFrames = Math.ceil(durationSeconds * fps);
+
+  // Calculate end frame timing (last 2 seconds or after last shot)
+  const lastShot = shots[shots.length - 1];
+  const endFrameStart = lastShot
+    ? Math.floor(lastShot.timeEnd * fps)
+    : totalFrames - Math.floor(2 * fps);
+  const endFrameDuration = totalFrames - endFrameStart;
+
+  // Default end frame content
+  const headline = endFrame?.headline ?? "Light. Controlled.";
+  const cta = endFrame?.cta ?? "Schedule Design Consultation";
+  const brandName = endFrame?.brandName ?? "NA BLINDS";
+
   return (
-    <AbsoluteFill>
-      {blueprint.shots.map((_, i) => (
-        <ShotLayer key={blueprint.shots[i].shotId} blueprint={blueprint} shotIndex={i} />
+    <AbsoluteFill style={{ backgroundColor: "#0d0d0d" }}>
+      {/* Render each shot scene */}
+      {shots.map((shot, i) => (
+        <ShotScene
+          key={shot.shotId}
+          shot={shot}
+          shotIndex={i}
+          isLastShot={i === shots.length - 1 && !endFrame}
+        />
       ))}
+
+      {/* End frame with CTA */}
+      {(endFrame || shots.length > 0) && (
+        <EndFrame
+          headline={headline}
+          cta={cta}
+          brandName={brandName}
+          startFrame={endFrameStart}
+          durationFrames={endFrameDuration}
+        />
+      )}
     </AbsoluteFill>
   );
 }
 
 export const reelCompositionConfig = {
   id: COMPOSITION_ID,
-  durationInFrames: 30 * 24, // default 30s at 24fps, overridden by inputProps
+  durationInFrames: 30 * 24,
   fps: 24,
   width: 1080,
-  height: 1920, // 9:16 default
+  height: 1920,
   defaultProps: {
     blueprint: {
       format: "reel_kit",
-      durationSeconds: 30,
+      durationSeconds: 6,
       fps: 24,
-      shots: [],
+      shots: [
+        {
+          shotId: "1",
+          timeStart: 0,
+          timeEnd: 2,
+          shotType: "wide" as const,
+          cameraMovement: "static",
+          sceneDescription: "Uncontrolled light flooding through bare windows",
+          onScreenText: { text: "Before" },
+        },
+        {
+          shotId: "2",
+          timeStart: 2,
+          timeEnd: 4,
+          shotType: "wide" as const,
+          cameraMovement: "slow_push",
+          sceneDescription: "Same space with elegant solar shades installed",
+          onScreenText: { text: "After" },
+        },
+      ],
+      endFrame: {
+        headline: "Light. Controlled.",
+        cta: "Schedule Design Consultation",
+        brandName: "NA BLINDS",
+      },
     } as ReelBlueprint,
   },
 };

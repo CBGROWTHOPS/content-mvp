@@ -24,6 +24,11 @@ export interface ReelBlueprintInput {
     onScreenText?: { text: string; position?: string; animationRules?: string };
     [key: string]: unknown;
   }>;
+  endFrame?: {
+    headline?: string;
+    cta?: string;
+    brandName?: string;
+  };
   [key: string]: unknown;
 }
 
