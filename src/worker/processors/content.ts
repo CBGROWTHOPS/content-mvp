@@ -70,7 +70,7 @@ export async function processContentJob(job: Job<QueueJobPayload, void, string>)
       filename
     );
 
-    let buffer: Buffer;
+    let buffer: Buffer | undefined;
     let cost: number | null = null;
 
     // Deterministic renderer path: ReelBlueprint → Remotion → MP4 (no AI model)
@@ -79,13 +79,22 @@ export async function processContentJob(job: Job<QueueJobPayload, void, string>)
       gen?.reel_blueprint &&
       BLUEPRINT_FORMATS.includes(payload.format as (typeof BLUEPRINT_FORMATS)[number]);
 
+    let usedRemotion = false;
     if (useRemotion) {
       const blueprint = gen!.reel_blueprint as Parameters<typeof renderReelFromBlueprint>[0];
       const tmpPath = path.join(os.tmpdir(), `remotion-${jobId}.mp4`);
-      await renderReelFromBlueprint(blueprint, tmpPath);
-      buffer = await fs.readFile(tmpPath);
-      await fs.unlink(tmpPath).catch(() => {});
-    } else {
+      try {
+        await renderReelFromBlueprint(blueprint, tmpPath);
+        buffer = await fs.readFile(tmpPath);
+        await fs.unlink(tmpPath).catch(() => {});
+        usedRemotion = true;
+      } catch (remotionErr) {
+        const errMsg = remotionErr instanceof Error ? remotionErr.message : String(remotionErr);
+        console.warn(`Remotion render failed, falling back to Replicate: ${errMsg}`);
+      }
+    }
+    
+    if (!usedRemotion) {
       // Generative path: prompt → Replicate → clip
       const prompt = await buildPrompt(enrichedPayload as QueueJobPayload["payload"]);
       const { url: replicateUrl, cost: c } = await runReplicate(
@@ -102,6 +111,10 @@ export async function processContentJob(job: Job<QueueJobPayload, void, string>)
         throw new Error(`Failed to fetch output: ${response.status}`);
       }
       buffer = Buffer.from(await response.arrayBuffer());
+    }
+
+    if (!buffer) {
+      throw new Error("No output buffer generated");
     }
 
     const { error: uploadError } = await supabase.storage
@@ -125,7 +138,7 @@ export async function processContentJob(job: Job<QueueJobPayload, void, string>)
         ? "image"
         : "video";
     const durationSeconds =
-      useRemotion && gen?.reel_blueprint
+      usedRemotion && gen?.reel_blueprint
         ? (gen.reel_blueprint as { durationSeconds?: number }).durationSeconds ?? null
         : payload.length_seconds ?? null;
     await supabase.from("assets").insert({
