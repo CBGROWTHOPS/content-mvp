@@ -276,8 +276,8 @@ async function generateReelAssets(
             const shotDuration = shot.timeEnd - shot.timeStart;
             const strictMode = attempt > 0;
             const prompt = strictMode 
-              ? `${shot.videoPrompt}. MUST be real video footage, cinematic, no abstract or blank backgrounds.`
-              : shot.videoPrompt;
+              ? `${shot.videoPrompt!}. MUST be real video footage, cinematic, no abstract or blank backgrounds.`
+              : shot.videoPrompt!;
             
             const { url, cost } = await runReplicate(
               "minimax/video-01",

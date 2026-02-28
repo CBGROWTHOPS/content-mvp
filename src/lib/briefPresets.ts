@@ -2,7 +2,7 @@
  * Brief Presets - Default creative briefs for testing mode.
  * Skip LLM calls during development and testing.
  */
-import { CompactCreativeBrief } from "./compactBrief";
+import { CompactCreativeBrief } from "./compactBrief.js";
 
 export const BRIEF_PRESETS: Record<string, CompactCreativeBrief> = {
   default_premium_reel_v1: {

@@ -3,7 +3,7 @@
  * Two gates: Gate A (pre-generation) and Gate B (post-generation).
  * Rejects assets that don't meet quality and consistency standards.
  */
-import { CompactCreativeBrief } from "./compactBrief";
+import { CompactCreativeBrief } from "./compactBrief.js";
 import { exec } from "child_process";
 import { promisify } from "util";
 

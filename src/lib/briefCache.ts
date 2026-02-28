@@ -3,13 +3,13 @@
  * Avoids redundant LLM calls when generating similar content.
  */
 import crypto from "crypto";
-import { supabase } from "./supabase";
+import { supabase } from "./supabase.js";
 import { 
   CompactCreativeBrief, 
   BriefInput, 
   generateCompactBrief, 
   GenerateBriefResult 
-} from "./compactBrief";
+} from "./compactBrief.js";
 
 export function computeBriefKey(input: BriefInput): string {
   const hash = crypto.createHash("sha1");
