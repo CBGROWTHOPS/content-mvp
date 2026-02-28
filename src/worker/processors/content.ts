@@ -498,7 +498,7 @@ export async function processContentJob(job: Job<QueueJobPayload, void, string>)
       duration_seconds: durationSeconds,
     });
 
-    await supabase
+    const { error: statusError } = await supabase
       .from("jobs")
       .update({
         status: "completed",
@@ -507,6 +507,12 @@ export async function processContentJob(job: Job<QueueJobPayload, void, string>)
         updated_at: new Date().toISOString(),
       })
       .eq("id", jobId);
+
+    if (statusError) {
+      console.error(`Job ${jobId}: Failed to update status to completed:`, statusError.message);
+    } else {
+      console.log(`Job ${jobId}: Status updated to completed`);
+    }
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error(`Job ${jobId} failed:`, message);
