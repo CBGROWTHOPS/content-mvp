@@ -1,5 +1,5 @@
 import React from "react";
-import { AbsoluteFill, useCurrentFrame, useVideoConfig, interpolate } from "remotion";
+import { AbsoluteFill, useCurrentFrame, useVideoConfig, interpolate, Video, OffthreadVideo } from "remotion";
 import { AnimatedText } from "./AnimatedText";
 import type { ReelBlueprintShot } from "../ReelComposition";
 
@@ -7,6 +7,7 @@ interface ShotSceneProps {
   shot: ReelBlueprintShot;
   shotIndex: number;
   isLastShot?: boolean;
+  videoUrl?: string;
 }
 
 const SCENE_BACKGROUNDS = [
@@ -17,7 +18,7 @@ const SCENE_BACKGROUNDS = [
   "linear-gradient(180deg, #27272a 0%, #18181b 100%)",
 ];
 
-export function ShotScene({ shot, shotIndex, isLastShot }: ShotSceneProps) {
+export function ShotScene({ shot, shotIndex, isLastShot, videoUrl }: ShotSceneProps) {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const startFrame = Math.floor(shot.timeStart * fps);
@@ -54,23 +55,43 @@ export function ShotScene({ shot, shotIndex, isLastShot }: ShotSceneProps) {
         })
       : 1;
 
+  const useVideo = shot.visualSource === "generated_video" && videoUrl;
+
   return (
     <AbsoluteFill
       style={{
-        background: bgColor,
+        background: useVideo ? "transparent" : bgColor,
         opacity,
         transform: `scale(${zoomScale})`,
       }}
     >
-      {/* Scene visual placeholder - warm neutral overlay */}
-      <div
-        style={{
-          position: "absolute",
-          inset: 0,
-          background:
-            "radial-gradient(ellipse at center, rgba(255,248,240,0.03) 0%, transparent 70%)",
-        }}
-      />
+      {/* Video background if available */}
+      {useVideo && (
+        <AbsoluteFill>
+          <OffthreadVideo
+            src={videoUrl}
+            style={{
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+            }}
+            startFrom={0}
+            muted
+          />
+        </AbsoluteFill>
+      )}
+
+      {/* Solid background fallback with warm neutral overlay */}
+      {!useVideo && (
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            background:
+              "radial-gradient(ellipse at center, rgba(255,248,240,0.03) 0%, transparent 70%)",
+          }}
+        />
+      )}
 
       {/* Primary on-screen text overlay */}
       {shot.onScreenText?.text && (

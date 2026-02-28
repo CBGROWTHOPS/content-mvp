@@ -67,6 +67,12 @@ export interface CreativeDirectorBrief {
   };
 }
 
+/** Reel type determines rendering pipeline and required assets */
+export type ReelType = "text_overlay" | "voiceover" | "broll" | "talking_head";
+
+/** Visual source for a shot - determines how background is rendered */
+export type VisualSource = "solid_bg" | "generated_video" | "avatar";
+
 /** Single shot spec for reel blueprint */
 export interface ReelBlueprintShot {
   shotId: string;
@@ -75,6 +81,9 @@ export interface ReelBlueprintShot {
   shotType: "wide" | "medium" | "close";
   cameraMovement: "static" | "slow_push" | "handheld" | "pan" | "other";
   sceneDescription: string;
+  visualSource: VisualSource;
+  videoPrompt?: string;
+  avatarScript?: string;
   propsSetDressingNotes?: string;
   lightingNotes?: string;
   talentNotes?: string;
@@ -87,17 +96,42 @@ export interface ReelBlueprintShot {
   assetRequirements?: string[];
 }
 
+/** Voiceover script with per-shot segments */
+export interface VoiceoverScript {
+  fullScript: string;
+  segments: Array<{
+    shotId: string;
+    text: string;
+    emotion?: string;
+  }>;
+}
+
+/** Music track selection for reel */
+export interface MusicTrackSelection {
+  mood: string;
+  tempo: "slow" | "medium" | "upbeat";
+  genre?: string;
+}
+
 /** Renderable reel spec for Director/Cinematic levels */
 export interface ReelBlueprint {
   format: string;
+  reelType: ReelType;
   durationSeconds: number;
   fps: number;
+  voiceoverScript?: VoiceoverScript;
+  musicTrack?: MusicTrackSelection;
   music?: string;
   soundDesign?: string;
   colorGrade?: string;
   typography?: string;
   deliverables?: string[];
   shots: ReelBlueprintShot[];
+  endFrame?: {
+    headline?: string;
+    cta?: string;
+    brandName?: string;
+  };
 }
 
 export interface TokenUsage {
@@ -325,8 +359,24 @@ function buildDirectorSchema(): object {
     },
     reelBlueprint: {
       format: "string (e.g. 9:16)",
+      reelType: "text_overlay | voiceover | broll | talking_head - choose based on content needs",
       durationSeconds: "number",
       fps: "number",
+      voiceoverScript: {
+        fullScript: "string - complete narration script",
+        segments: [
+          {
+            shotId: "string - matches shot.shotId",
+            text: "string - narration for this shot",
+            emotion: "string (optional) - calm, excited, warm, etc.",
+          },
+        ],
+      },
+      musicTrack: {
+        mood: "string - calm, upbeat, dramatic, warm, etc.",
+        tempo: "slow | medium | upbeat",
+        genre: "string (optional) - ambient, corporate, cinematic, etc.",
+      },
       music: "string (optional)",
       soundDesign: "string (optional)",
       colorGrade: "string (optional)",
@@ -340,6 +390,9 @@ function buildDirectorSchema(): object {
           shotType: "wide | medium | close",
           cameraMovement: "static | slow_push | handheld | pan | other",
           sceneDescription: "string",
+          visualSource: "solid_bg | generated_video | avatar - choose based on reelType",
+          videoPrompt: "string (optional) - prompt for AI video generation if visualSource is generated_video",
+          avatarScript: "string (optional) - script for avatar if visualSource is avatar",
           propsSetDressingNotes: "string (optional)",
           lightingNotes: "string (optional)",
           talentNotes: "string (optional)",
@@ -352,6 +405,11 @@ function buildDirectorSchema(): object {
           assetRequirements: ["string (optional)"],
         },
       ],
+      endFrame: {
+        headline: "string (optional) - final screen headline",
+        cta: "string (optional) - call to action button text",
+        brandName: "string (optional) - brand name or logo text",
+      },
     },
   };
 }
@@ -378,6 +436,21 @@ function buildPrompt(brand: BrandKit, strategy: StrategySelection): string {
     "",
     "## Brand Kit as Safety Rails",
     "The Reel Kit and Brand Kit above are mandatory safety rails. All creative direction, art direction, camera, lighting, typography, and sound must respect these constraints. Never violate voice rules, forbidden language, lighting rules, or scene requirements.",
+    "",
+    "## Reel Type Selection",
+    "Choose reelType based on content needs:",
+    "- text_overlay: Text animations on solid/gradient backgrounds. Best for quick tips, announcements, quotes.",
+    "- voiceover: Narrator speaks over visuals. Best for storytelling, tutorials, product explanations.",
+    "- broll: AI-generated video footage with optional text/voiceover. Best for cinematic product showcases.",
+    "- talking_head: Avatar presenter (future). Skip for now, use voiceover instead.",
+    "",
+    "For each shot, set visualSource to match:",
+    "- solid_bg: Use for text_overlay reels or transition shots",
+    "- generated_video: Use for broll reels, include videoPrompt for AI generation",
+    "- avatar: Use for talking_head reels (future)",
+    "",
+    "If reelType is voiceover or broll, include voiceoverScript with segments matching each shot.",
+    "Always include musicTrack with mood and tempo that matches the brand voice.",
     "",
     "## Task",
     "Generate marketing copy, a full Creative Director Brief (playbook for production), and a Reel Blueprint (renderable shot-by-shot spec). Return ONLY valid JSON matching this schema - no markdown, no explanation:"

@@ -1,7 +1,10 @@
 import React from "react";
-import { AbsoluteFill } from "remotion";
+import { AbsoluteFill, Audio } from "remotion";
 import { ShotScene } from "./components/ShotScene";
 import { EndFrame } from "./components/EndFrame";
+
+export type ReelType = "text_overlay" | "voiceover" | "broll" | "talking_head";
+export type VisualSource = "solid_bg" | "generated_video" | "avatar";
 
 export interface ReelBlueprintShot {
   shotId: string;
@@ -10,6 +13,9 @@ export interface ReelBlueprintShot {
   shotType: "wide" | "medium" | "close";
   cameraMovement: string;
   sceneDescription: string;
+  visualSource?: VisualSource;
+  videoPrompt?: string;
+  avatarScript?: string;
   propsSetDressingNotes?: string;
   lightingNotes?: string;
   talentNotes?: string;
@@ -22,10 +28,28 @@ export interface ReelBlueprintShot {
   assetRequirements?: string[];
 }
 
+export interface VoiceoverScript {
+  fullScript: string;
+  segments: Array<{
+    shotId: string;
+    text: string;
+    emotion?: string;
+  }>;
+}
+
+export interface MusicTrackSelection {
+  mood: string;
+  tempo: "slow" | "medium" | "upbeat";
+  genre?: string;
+}
+
 export interface ReelBlueprint {
   format: string;
+  reelType?: ReelType;
   durationSeconds: number;
   fps: number;
+  voiceoverScript?: VoiceoverScript;
+  musicTrack?: MusicTrackSelection;
   music?: string;
   soundDesign?: string;
   colorGrade?: string;
@@ -39,9 +63,20 @@ export interface ReelBlueprint {
   };
 }
 
+export interface ReelAssets {
+  voiceoverUrl?: string;
+  musicUrl?: string;
+  videosByShot?: Record<string, string>;
+}
+
 const COMPOSITION_ID = "ReelFromBlueprint";
 
-export function ReelComposition({ blueprint }: { blueprint: ReelBlueprint }) {
+interface ReelCompositionProps {
+  blueprint: ReelBlueprint;
+  assets?: ReelAssets;
+}
+
+export function ReelComposition({ blueprint, assets }: ReelCompositionProps) {
   const { shots, durationSeconds, fps, endFrame } = blueprint;
   const totalFrames = Math.ceil(durationSeconds * fps);
 
@@ -66,6 +101,7 @@ export function ReelComposition({ blueprint }: { blueprint: ReelBlueprint }) {
           shot={shot}
           shotIndex={i}
           isLastShot={i === shots.length - 1 && !endFrame}
+          videoUrl={assets?.videosByShot?.[shot.shotId]}
         />
       ))}
 
@@ -78,6 +114,16 @@ export function ReelComposition({ blueprint }: { blueprint: ReelBlueprint }) {
           startFrame={endFrameStart}
           durationFrames={endFrameDuration}
         />
+      )}
+
+      {/* Background music */}
+      {assets?.musicUrl && (
+        <Audio src={assets.musicUrl} volume={0.3} />
+      )}
+
+      {/* Voiceover */}
+      {assets?.voiceoverUrl && (
+        <Audio src={assets.voiceoverUrl} volume={1} />
       )}
     </AbsoluteFill>
   );
@@ -92,6 +138,7 @@ export const reelCompositionConfig = {
   defaultProps: {
     blueprint: {
       format: "reel_kit",
+      reelType: "text_overlay" as ReelType,
       durationSeconds: 6,
       fps: 24,
       shots: [
@@ -102,6 +149,7 @@ export const reelCompositionConfig = {
           shotType: "wide" as const,
           cameraMovement: "static",
           sceneDescription: "Uncontrolled light flooding through bare windows",
+          visualSource: "solid_bg" as VisualSource,
           onScreenText: { text: "Before" },
         },
         {
@@ -111,6 +159,7 @@ export const reelCompositionConfig = {
           shotType: "wide" as const,
           cameraMovement: "slow_push",
           sceneDescription: "Same space with elegant solar shades installed",
+          visualSource: "solid_bg" as VisualSource,
           onScreenText: { text: "After" },
         },
       ],
@@ -120,5 +169,6 @@ export const reelCompositionConfig = {
         brandName: "NA BLINDS",
       },
     } as ReelBlueprint,
+    assets: {} as ReelAssets,
   },
 };

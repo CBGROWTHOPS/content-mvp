@@ -4,11 +4,44 @@ import os from "node:os";
 import path from "node:path";
 import { buildPrompt } from "../../core/prompts.js";
 import { runReplicate } from "../../lib/replicate.js";
-import { renderReelFromBlueprint } from "../../remotion/render.js";
+import { renderReelFromBlueprint, type ReelAssetsInput } from "../../remotion/render.js";
 import { supabase, STORAGE_BUCKET, getStoragePath } from "../../lib/supabase.js";
+import { generateVoiceoverToFile, VOICE_PRESETS } from "../../lib/elevenlabs.js";
+import { selectTrack } from "../../lib/musicLibrary.js";
 import type { QueueJobPayload } from "../../types/index.js";
 
 const BLUEPRINT_FORMATS = ["reel_kit", "wide_video_kit"] as const;
+
+type ReelType = "text_overlay" | "voiceover" | "broll" | "talking_head";
+
+interface ExtendedBlueprint {
+  format: string;
+  reelType?: ReelType;
+  durationSeconds: number;
+  fps?: number;
+  voiceoverScript?: {
+    fullScript: string;
+    segments?: Array<{ shotId: string; text: string; emotion?: string }>;
+  };
+  musicTrack?: {
+    mood: string;
+    tempo?: "slow" | "medium" | "upbeat";
+    genre?: string;
+  };
+  shots: Array<{
+    shotId: string;
+    timeStart: number;
+    timeEnd: number;
+    shotType: string;
+    cameraMovement: string;
+    sceneDescription: string;
+    visualSource?: string;
+    videoPrompt?: string;
+    onScreenText?: { text: string };
+    [key: string]: unknown;
+  }>;
+  endFrame?: { headline?: string; cta?: string; brandName?: string };
+}
 
 function mergeGenerationIntoVariables(
   variables: Record<string, string | number | boolean>,
@@ -31,6 +64,124 @@ function mergeGenerationIntoVariables(
     });
   }
   return out;
+}
+
+/**
+ * Generate audio/video assets based on reel type and blueprint.
+ */
+async function generateReelAssets(
+  blueprint: ExtendedBlueprint,
+  jobId: string,
+  brandKey: string
+): Promise<{ assets: ReelAssetsInput; totalCost: number }> {
+  const assets: ReelAssetsInput = {};
+  let totalCost = 0;
+  const reelType = blueprint.reelType ?? "text_overlay";
+  const tmpDir = path.join(os.tmpdir(), `reel-assets-${jobId}`);
+  await fs.mkdir(tmpDir, { recursive: true });
+
+  // Generate voiceover for voiceover and broll reels
+  if ((reelType === "voiceover" || reelType === "broll") && blueprint.voiceoverScript?.fullScript) {
+    console.log(`Generating voiceover for job ${jobId}...`);
+    try {
+      const voPath = path.join(tmpDir, "voiceover.mp3");
+      const result = await generateVoiceoverToFile(
+        blueprint.voiceoverScript.fullScript,
+        voPath,
+        { voiceId: VOICE_PRESETS.professional_female }
+      );
+      
+      // Upload voiceover to Supabase
+      const voBuffer = await fs.readFile(voPath);
+      const voStoragePath = getStoragePath(brandKey, "audio", jobId, "voiceover.mp3");
+      await supabase.storage.from(STORAGE_BUCKET).upload(voStoragePath, voBuffer, {
+        contentType: "audio/mpeg",
+        upsert: true,
+      });
+      const { data: voUrlData } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(voStoragePath);
+      assets.voiceoverUrl = voUrlData.publicUrl;
+      totalCost += result.cost;
+      console.log(`Voiceover generated: ${result.characterCount} chars, $${result.cost.toFixed(4)}`);
+    } catch (err) {
+      console.warn(`Voiceover generation failed: ${err instanceof Error ? err.message : err}`);
+    }
+  }
+
+  // Select music track
+  if (blueprint.musicTrack?.mood) {
+    console.log(`Selecting music for job ${jobId}...`);
+    const selection = selectTrack({
+      mood: blueprint.musicTrack.mood,
+      tempo: blueprint.musicTrack.tempo,
+      genre: blueprint.musicTrack.genre,
+      minDurationSeconds: blueprint.durationSeconds,
+    });
+    
+    if (selection) {
+      try {
+        // Check if file exists
+        await fs.access(selection.filePath);
+        
+        // Upload music to Supabase
+        const musicBuffer = await fs.readFile(selection.filePath);
+        const musicStoragePath = getStoragePath(brandKey, "audio", jobId, `music-${selection.track.id}.mp3`);
+        await supabase.storage.from(STORAGE_BUCKET).upload(musicStoragePath, musicBuffer, {
+          contentType: "audio/mpeg",
+          upsert: true,
+        });
+        const { data: musicUrlData } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(musicStoragePath);
+        assets.musicUrl = musicUrlData.publicUrl;
+        console.log(`Music selected: ${selection.track.id} (${selection.track.mood})`);
+      } catch {
+        console.warn(`Music file not found: ${selection.filePath}`);
+      }
+    }
+  }
+
+  // Generate video for broll shots
+  if (reelType === "broll") {
+    const videosByShot: Record<string, string> = {};
+    
+    for (const shot of blueprint.shots) {
+      if (shot.visualSource === "generated_video" && shot.videoPrompt) {
+        console.log(`Generating video for shot ${shot.shotId}...`);
+        try {
+          const shotDuration = shot.timeEnd - shot.timeStart;
+          const { url, cost } = await runReplicate(
+            "minimax/video-01",
+            shot.videoPrompt,
+            { lengthSeconds: Math.ceil(shotDuration), aspectRatio: "9:16" }
+          );
+          
+          // Download and upload to Supabase
+          const videoResp = await fetch(url);
+          if (videoResp.ok) {
+            const videoBuffer = Buffer.from(await videoResp.arrayBuffer());
+            const videoStoragePath = getStoragePath(brandKey, "video", jobId, `shot-${shot.shotId}.mp4`);
+            await supabase.storage.from(STORAGE_BUCKET).upload(videoStoragePath, videoBuffer, {
+              contentType: "video/mp4",
+              upsert: true,
+            });
+            const { data: videoUrlData } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(videoStoragePath);
+            videosByShot[shot.shotId] = videoUrlData.publicUrl;
+            totalCost += cost ?? 0;
+            console.log(`Shot ${shot.shotId} video generated, cost: $${(cost ?? 0).toFixed(4)}`);
+          }
+        } catch (err) {
+          console.warn(`Video generation failed for shot ${shot.shotId}: ${err instanceof Error ? err.message : err}`);
+        }
+      }
+    }
+    
+    if (Object.keys(videosByShot).length > 0) {
+      assets.videosByShot = videosByShot;
+    }
+  }
+
+  // Cleanup temp dir
+  await fs.rm(tmpDir, { recursive: true, force: true }).catch(() => {});
+
+  return { assets, totalCost };
 }
 
 export async function processContentJob(job: Job<QueueJobPayload, void, string>): Promise<void> {
@@ -81,13 +232,28 @@ export async function processContentJob(job: Job<QueueJobPayload, void, string>)
 
     let usedRemotion = false;
     if (useRemotion) {
-      const blueprint = gen!.reel_blueprint as Parameters<typeof renderReelFromBlueprint>[0];
+      const blueprint = gen!.reel_blueprint as ExtendedBlueprint;
       const tmpPath = path.join(os.tmpdir(), `remotion-${jobId}.mp4`);
       try {
-        await renderReelFromBlueprint(blueprint, tmpPath);
+        // Generate audio/video assets based on reel type
+        const { assets, totalCost: assetCost } = await generateReelAssets(
+          blueprint,
+          jobId,
+          payload.brand_key
+        );
+        cost = assetCost > 0 ? assetCost : null;
+        
+        // Render with assets (ensure fps has a default)
+        const blueprintWithDefaults = {
+          ...blueprint,
+          fps: blueprint.fps ?? 24,
+        };
+        await renderReelFromBlueprint(blueprintWithDefaults, tmpPath, assets);
         buffer = await fs.readFile(tmpPath);
         await fs.unlink(tmpPath).catch(() => {});
         usedRemotion = true;
+        
+        console.log(`Job ${jobId}: Remotion render complete, reelType=${blueprint.reelType ?? "text_overlay"}`);
       } catch (remotionErr) {
         const errMsg = remotionErr instanceof Error ? remotionErr.message : String(remotionErr);
         console.warn(`Remotion render failed, falling back to Replicate: ${errMsg}`);

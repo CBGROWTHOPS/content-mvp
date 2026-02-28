@@ -1,0 +1,98 @@
+{
+  "tracks": [
+    {
+      "id": "calm-ambient-01",
+      "filename": "calm/ambient-morning.mp3",
+      "mood": "calm",
+      "tempo": "slow",
+      "genre": "ambient",
+      "durationSeconds": 60,
+      "bpm": 70,
+      "license": "royalty-free",
+      "description": "Soft ambient piano with gentle pads"
+    },
+    {
+      "id": "calm-minimal-01",
+      "filename": "calm/minimal-focus.mp3",
+      "mood": "calm",
+      "tempo": "slow",
+      "genre": "minimal",
+      "durationSeconds": 45,
+      "bpm": 80,
+      "license": "royalty-free",
+      "description": "Minimal electronic with soft textures"
+    },
+    {
+      "id": "warm-acoustic-01",
+      "filename": "warm/acoustic-warmth.mp3",
+      "mood": "warm",
+      "tempo": "medium",
+      "genre": "acoustic",
+      "durationSeconds": 60,
+      "bpm": 95,
+      "license": "royalty-free",
+      "description": "Warm acoustic guitar with subtle percussion"
+    },
+    {
+      "id": "warm-cinematic-01",
+      "filename": "warm/cinematic-light.mp3",
+      "mood": "warm",
+      "tempo": "slow",
+      "genre": "cinematic",
+      "durationSeconds": 45,
+      "bpm": 85,
+      "license": "royalty-free",
+      "description": "Cinematic strings with warm tones"
+    },
+    {
+      "id": "upbeat-corporate-01",
+      "filename": "upbeat/corporate-energy.mp3",
+      "mood": "upbeat",
+      "tempo": "upbeat",
+      "genre": "corporate",
+      "durationSeconds": 60,
+      "bpm": 120,
+      "license": "royalty-free",
+      "description": "Modern corporate with positive energy"
+    },
+    {
+      "id": "upbeat-modern-01",
+      "filename": "upbeat/modern-drive.mp3",
+      "mood": "upbeat",
+      "tempo": "upbeat",
+      "genre": "electronic",
+      "durationSeconds": 45,
+      "bpm": 128,
+      "license": "royalty-free",
+      "description": "Driving electronic beat with synth layers"
+    },
+    {
+      "id": "dramatic-epic-01",
+      "filename": "dramatic/epic-reveal.mp3",
+      "mood": "dramatic",
+      "tempo": "medium",
+      "genre": "cinematic",
+      "durationSeconds": 60,
+      "bpm": 100,
+      "license": "royalty-free",
+      "description": "Epic orchestral build for reveals"
+    },
+    {
+      "id": "dramatic-tension-01",
+      "filename": "dramatic/subtle-tension.mp3",
+      "mood": "dramatic",
+      "tempo": "slow",
+      "genre": "ambient",
+      "durationSeconds": 45,
+      "bpm": 75,
+      "license": "royalty-free",
+      "description": "Subtle tension builder with dark pads"
+    }
+  ],
+  "moodMappings": {
+    "calm": ["calm", "peaceful", "serene", "relaxed", "soft"],
+    "warm": ["warm", "cozy", "inviting", "comfortable", "homey"],
+    "upbeat": ["upbeat", "energetic", "positive", "bright", "happy", "excited"],
+    "dramatic": ["dramatic", "cinematic", "epic", "intense", "powerful"]
+  }
+}
