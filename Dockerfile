@@ -29,14 +29,20 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies
-RUN npm ci --omit=dev
+# Install all dependencies (including devDependencies for build)
+RUN npm ci
 
-# Copy source
+# Copy source and brands
 COPY . .
 
 # Build TypeScript
 RUN npm run build
 
-# Run worker
-CMD ["npm", "run", "worker"]
+# Remove devDependencies after build
+RUN npm prune --production
+
+# Default to worker - can be overridden via RAILWAY env or CMD
+ENV SERVICE_MODE=worker
+
+# Use shell form to allow variable expansion
+CMD if [ "$SERVICE_MODE" = "web" ]; then npm run start; else npm run worker; fi
