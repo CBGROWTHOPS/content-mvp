@@ -250,14 +250,23 @@ async function generateReelAssets(
     console.warn(`Music selection/generation failed: ${err instanceof Error ? err.message : err}`);
   }
 
-  // Generate video for broll shots with validation
-  if (reelType === "broll") {
+  // #region agent log
+  fetch('http://127.0.0.1:7622/ingest/6914438b-b125-4fa3-85ef-baac9ba1b5cf',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'bc96f7'},body:JSON.stringify({sessionId:'bc96f7',location:'content.ts:253',message:'Video generation check',data:{reelType,shotCount:blueprint.shots.length,shotsNeedingVideo:blueprint.shots.filter(s=>s.visualSource==='generated_video').length},timestamp:Date.now()})}).catch(()=>{});
+  // #endregion
+
+  // Generate video for ANY shots with visualSource=generated_video (not just broll)
+  const shotsNeedingVideo = blueprint.shots.filter(shot => shot.visualSource === "generated_video" && shot.videoPrompt);
+  
+  if (shotsNeedingVideo.length > 0) {
+    // #region agent log
+    fetch('http://127.0.0.1:7622/ingest/6914438b-b125-4fa3-85ef-baac9ba1b5cf',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'bc96f7'},body:JSON.stringify({sessionId:'bc96f7',location:'content.ts:260',message:'Starting video generation',data:{shotsNeedingVideo:shotsNeedingVideo.length,shotIds:shotsNeedingVideo.map(s=>s.shotId)},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
+    
     await updateProgress(jobId, "generating_video");
     const videosByShot: Record<string, string> = {};
     
-    for (const shot of blueprint.shots) {
-      if (shot.visualSource === "generated_video" && shot.videoPrompt) {
-        console.log(`Generating video for shot ${shot.shotId}...`);
+    for (const shot of shotsNeedingVideo) {
+      console.log(`Generating video for shot ${shot.shotId}...`);
         
         const maxRetries = 2;
         let lastError: string | undefined;
@@ -342,8 +351,11 @@ async function generateReelAssets(
         if (!videosByShot[shot.shotId] && lastError) {
           console.warn(`Video generation failed for shot ${shot.shotId} after ${maxRetries} attempts: ${lastError}`);
         }
-      }
     }
+    
+    // #region agent log
+    fetch('http://127.0.0.1:7622/ingest/6914438b-b125-4fa3-85ef-baac9ba1b5cf',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'bc96f7'},body:JSON.stringify({sessionId:'bc96f7',location:'content.ts:356',message:'Video generation complete',data:{videosGenerated:Object.keys(videosByShot).length,videosByShot:Object.keys(videosByShot)},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
     
     if (Object.keys(videosByShot).length > 0) {
       assets.videosByShot = videosByShot;

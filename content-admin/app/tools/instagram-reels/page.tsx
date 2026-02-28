@@ -130,16 +130,18 @@ export default function InstagramReelsPage() {
         throw new Error(jobResult.error);
       }
 
-      setJobId(jobResult.data.id);
+      const newJobId = jobResult.data.id;
+      setJobId(newJobId);
       setCurrentStep(3);
-
-      // Redirect to job page
-      router.push(`/jobs/${jobResult.data.id}`);
+      
+      // Redirect after brief delay to show success state
+      setTimeout(() => {
+        router.push(`/jobs/${newJobId}`);
+      }, 1000);
 
     } catch (err) {
       setError(err instanceof Error ? err.message : "Generation failed");
       setCurrentStep(0);
-    } finally {
       setLoading(false);
     }
   };
@@ -175,6 +177,19 @@ export default function InstagramReelsPage() {
       {error && (
         <div className="rounded border border-red-900/50 bg-red-950/30 px-3 py-2 text-sm text-red-400">
           {error}
+        </div>
+      )}
+
+      {jobId && (
+        <div className="rounded border border-green-900/50 bg-green-950/30 px-4 py-3 text-sm">
+          <div className="flex items-center gap-2">
+            <svg className="h-5 w-5 animate-spin text-green-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <span className="text-green-400 font-medium">Job created! Redirecting to progress tracker...</span>
+          </div>
+          <p className="mt-1 text-green-300/70 text-xs font-mono">Job ID: {jobId}</p>
         </div>
       )}
 
@@ -243,10 +258,18 @@ export default function InstagramReelsPage() {
         <button
           type="button"
           onClick={handleGenerate}
-          disabled={!brandId || loading}
+          disabled={!brandId || loading || !!jobId}
           className="w-full rounded bg-gradient-to-r from-pink-600 to-purple-600 px-4 py-3 text-sm font-medium text-white hover:from-pink-500 hover:to-purple-500 disabled:opacity-50"
         >
-          {loading ? "Generating Reel..." : "Create Instagram Reel"}
+          {jobId
+            ? "Redirecting..."
+            : loading
+              ? currentStep === 1
+                ? "Creating Creative Brief..."
+                : currentStep === 2
+                  ? "Queuing Reel Generation..."
+                  : "Starting..."
+              : "Create Instagram Reel"}
         </button>
       </div>
 
