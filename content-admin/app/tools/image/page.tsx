@@ -14,11 +14,20 @@ const COLLECTIONS: { value: Collection; label: string }[] = [
   { value: "smart", label: "SMART" },
 ];
 
+const ASPECT_RATIOS = [
+  { value: "4:5", label: "4:5 — Feed", description: "Instagram/Facebook feed" },
+  { value: "9:16", label: "9:16 — Story/Reel", description: "Stories & Reels" },
+  { value: "1.91:1", label: "1.91:1 — Landscape", description: "Facebook/Google ads" },
+] as const;
+
+type AspectRatio = (typeof ASPECT_RATIOS)[number]["value"];
+
 export default function ImageToolPage() {
   const router = useRouter();
   const [brandId, setBrandId] = useState("");
   const [brands, setBrands] = useState<Array<{ key: string; display_name: string }>>([]);
   const [collection, setCollection] = useState<Collection>("sheer");
+  const [aspectRatio, setAspectRatio] = useState<AspectRatio>("4:5");
   const [body, setBody] = useState("");
   const [modelKey, setModelKey] = useState<string>("");
   const [models, setModels] = useState<import("@/lib/api").ApiModel[]>([]);
@@ -51,7 +60,7 @@ export default function ImageToolPage() {
       format: "image_kit",
       objective: "lead_generation",
       hook_type: "contrast",
-      aspect_ratio: "4:5",
+      aspect_ratio: aspectRatio,
       collection,
       variables: { body: body || "Architectural window treatment in modern space" },
     };
@@ -75,7 +84,7 @@ export default function ImageToolPage() {
       <div>
         <h1 className="text-xl font-semibold text-zinc-100">Generate Image</h1>
         <p className="mt-1 text-sm text-zinc-400">
-          4:5 editorial image. Uses Image Kit template.
+          Ad-ready images in multiple formats. Uses Image Kit template.
         </p>
         <div className="mt-3 rounded border border-zinc-800/50 bg-zinc-900/30 px-3 py-2 text-xs text-zinc-500">
           <strong className="text-zinc-400">How it works:</strong> Pick brand, collection, and description. Queues a job; result appears in <Link href="/jobs" className="text-zinc-400 underline hover:text-white">Logs</Link>.
@@ -102,6 +111,26 @@ export default function ImageToolPage() {
               <option key={c.value} value={c.value}>{c.label}</option>
             ))}
           </select>
+        </div>
+        <div>
+          <label className="mb-1 block text-sm font-medium text-zinc-400">Aspect Ratio</label>
+          <div className="grid grid-cols-3 gap-2">
+            {ASPECT_RATIOS.map((ar) => (
+              <button
+                key={ar.value}
+                type="button"
+                onClick={() => setAspectRatio(ar.value)}
+                className={`rounded border px-3 py-2 text-xs transition-colors ${
+                  aspectRatio === ar.value
+                    ? "border-zinc-500 bg-zinc-800 text-zinc-100"
+                    : "border-zinc-700 bg-zinc-900 text-zinc-400 hover:border-zinc-600"
+                }`}
+              >
+                <div className="font-medium">{ar.value}</div>
+                <div className="mt-0.5 text-zinc-500">{ar.description}</div>
+              </button>
+            ))}
+          </div>
         </div>
         {models.length > 1 && (
           <div>

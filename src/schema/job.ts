@@ -10,7 +10,7 @@ const formatEnum = z.enum([
   "wide_video_kit",
 ]);
 const qualityEnum = z.enum(["draft", "final"]);
-const aspectRatioEnum = z.enum(["1:1", "4:5", "9:16", "16:9"]);
+const aspectRatioEnum = z.enum(["1:1", "4:5", "9:16", "16:9", "1.91:1"]);
 const hookTypeEnum = z.enum([
   "contrast",
   "question",
@@ -86,11 +86,13 @@ export const jobSchema = baseJobSchema
   .refine(
     (data) => {
       if (data.format === "image_kit") {
-        return data.aspect_ratio === "4:5" || !data.aspect_ratio;
+        // Ad-ready aspect ratios: 4:5 (feed), 9:16 (story/reel), 1.91:1 (landscape ads)
+        const adRatios = ["4:5", "9:16", "1.91:1"];
+        return !data.aspect_ratio || adRatios.includes(data.aspect_ratio);
       }
       return true;
     },
-    { message: "image_kit uses 4:5 aspect ratio" }
+    { message: "image_kit supports 4:5, 9:16, or 1.91:1 aspect ratios" }
   )
   .refine(
     (data) => {

@@ -76,81 +76,100 @@ async function generateReelAssets(
 ): Promise<{ assets: ReelAssetsInput; totalCost: number }> {
   const assets: ReelAssetsInput = {};
   let totalCost = 0;
-  const reelType = blueprint.reelType ?? "text_overlay";
+  const reelType = blueprint.reelType ?? "voiceover";
   const tmpDir = path.join(os.tmpdir(), `reel-assets-${jobId}`);
   await fs.mkdir(tmpDir, { recursive: true });
 
   // Generate voiceover for voiceover and broll reels
-  if ((reelType === "voiceover" || reelType === "broll") && blueprint.voiceoverScript?.fullScript) {
-    console.log(`Generating voiceover for job ${jobId}...`);
-    try {
-      const voPath = path.join(tmpDir, "voiceover.mp3");
-      const result = await generateVoiceoverToFile(
-        blueprint.voiceoverScript.fullScript,
-        voPath,
-        { voiceId: VOICE_PRESETS.professional_female }
-      );
-      
-      // Upload voiceover to Supabase
-      const voBuffer = await fs.readFile(voPath);
-      const voStoragePath = getStoragePath(brandKey, "audio", jobId, "voiceover.mp3");
-      await supabase.storage.from(STORAGE_BUCKET).upload(voStoragePath, voBuffer, {
-        contentType: "audio/mpeg",
-        upsert: true,
-      });
-      const { data: voUrlData } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(voStoragePath);
-      assets.voiceoverUrl = voUrlData.publicUrl;
-      totalCost += result.cost;
-      console.log(`Voiceover generated: ${result.characterCount} chars, $${result.cost.toFixed(4)}`);
-    } catch (err) {
-      console.warn(`Voiceover generation failed: ${err instanceof Error ? err.message : err}`);
+  if (reelType === "voiceover" || reelType === "broll") {
+    // Get voiceover script - use provided script or generate from on-screen text
+    let voiceoverText = blueprint.voiceoverScript?.fullScript;
+    
+    if (!voiceoverText) {
+      // Fallback: concatenate on-screen text from shots
+      const textParts = blueprint.shots
+        .map(shot => shot.onScreenText?.text)
+        .filter(Boolean);
+      if (textParts.length > 0) {
+        voiceoverText = textParts.join(". ");
+        console.log(`No voiceover script provided, using on-screen text: "${voiceoverText.slice(0, 50)}..."`);
+      }
+    }
+    
+    if (voiceoverText) {
+      console.log(`Generating voiceover for job ${jobId}...`);
+      try {
+        const voPath = path.join(tmpDir, "voiceover.mp3");
+        const result = await generateVoiceoverToFile(
+          voiceoverText,
+          voPath,
+          { voiceId: VOICE_PRESETS.professional_female }
+        );
+        
+        // Upload voiceover to Supabase
+        const voBuffer = await fs.readFile(voPath);
+        const voStoragePath = getStoragePath(brandKey, "audio", jobId, "voiceover.mp3");
+        await supabase.storage.from(STORAGE_BUCKET).upload(voStoragePath, voBuffer, {
+          contentType: "audio/mpeg",
+          upsert: true,
+        });
+        const { data: voUrlData } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(voStoragePath);
+        assets.voiceoverUrl = voUrlData.publicUrl;
+        totalCost += result.cost;
+        console.log(`Voiceover generated: ${result.characterCount} chars, $${result.cost.toFixed(4)}`);
+      } catch (err) {
+        console.warn(`Voiceover generation failed: ${err instanceof Error ? err.message : err}`);
+      }
     }
   }
 
   // Get music - tries library first, falls back to AI generation (MusicGen)
-  if (blueprint.musicTrack?.mood) {
-    console.log(`Getting music for job ${jobId}...`);
-    try {
-      const musicResult = await getMusicForReel({
-        mood: blueprint.musicTrack.mood,
-        tempo: blueprint.musicTrack.tempo,
-        genre: blueprint.musicTrack.genre,
-        minDurationSeconds: blueprint.durationSeconds,
-        generateIfMissing: true,
-        brandContext: brandKey,
+  // ALWAYS generate music unless explicitly text_overlay with no audio needed
+  const musicMood = blueprint.musicTrack?.mood ?? "warm";
+  const musicTempo = blueprint.musicTrack?.tempo ?? "medium";
+  const musicGenre = blueprint.musicTrack?.genre ?? "ambient";
+  
+  console.log(`Getting music for job ${jobId} (mood: ${musicMood})...`);
+  try {
+    const musicResult = await getMusicForReel({
+      mood: musicMood,
+      tempo: musicTempo,
+      genre: musicGenre,
+      minDurationSeconds: blueprint.durationSeconds,
+      generateIfMissing: true,
+      brandContext: brandKey,
+    });
+    
+    if (musicResult.source === "library" && musicResult.filePath) {
+      // Upload pre-licensed track from library
+      const musicBuffer = await fs.readFile(musicResult.filePath);
+      const musicStoragePath = getStoragePath(brandKey, "audio", jobId, `music-library.mp3`);
+      await supabase.storage.from(STORAGE_BUCKET).upload(musicStoragePath, musicBuffer, {
+        contentType: "audio/mpeg",
+        upsert: true,
       });
-      
-      if (musicResult.source === "library" && musicResult.filePath) {
-        // Upload pre-licensed track from library
-        const musicBuffer = await fs.readFile(musicResult.filePath);
-        const musicStoragePath = getStoragePath(brandKey, "audio", jobId, `music-library.mp3`);
-        await supabase.storage.from(STORAGE_BUCKET).upload(musicStoragePath, musicBuffer, {
-          contentType: "audio/mpeg",
-          upsert: true,
-        });
-        const { data: musicUrlData } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(musicStoragePath);
-        assets.musicUrl = musicUrlData.publicUrl;
-        console.log(`Library music uploaded (cost: $0)`);
-      } else if (musicResult.source === "generated" && musicResult.audioUrl) {
-        // Download AI-generated music and upload to Supabase
-        const response = await fetch(musicResult.audioUrl);
-        if (!response.ok) {
-          throw new Error(`Failed to download music: ${response.status}`);
-        }
-        const musicBuffer = Buffer.from(await response.arrayBuffer());
-        const musicStoragePath = getStoragePath(brandKey, "audio", jobId, `music-generated.mp3`);
-        await supabase.storage.from(STORAGE_BUCKET).upload(musicStoragePath, musicBuffer, {
-          contentType: "audio/mpeg",
-          upsert: true,
-        });
-        const { data: musicUrlData } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(musicStoragePath);
-        assets.musicUrl = musicUrlData.publicUrl;
-        totalCost += musicResult.cost;
-        console.log(`AI music generated via MusicGen (cost: $${musicResult.cost.toFixed(3)})`);
+      const { data: musicUrlData } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(musicStoragePath);
+      assets.musicUrl = musicUrlData.publicUrl;
+      console.log(`Library music uploaded (cost: $0)`);
+    } else if (musicResult.source === "generated" && musicResult.audioUrl) {
+      // Download AI-generated music and upload to Supabase
+      const response = await fetch(musicResult.audioUrl);
+      if (!response.ok) {
+        throw new Error(`Failed to download music: ${response.status}`);
       }
-    } catch (err) {
-      console.warn(`Music selection/generation failed: ${err instanceof Error ? err.message : err}`);
+      const musicBuffer = Buffer.from(await response.arrayBuffer());
+      const musicStoragePath = getStoragePath(brandKey, "audio", jobId, `music-generated.mp3`);
+      await supabase.storage.from(STORAGE_BUCKET).upload(musicStoragePath, musicBuffer, {
+        contentType: "audio/mpeg",
+        upsert: true,
+      });
+      const { data: musicUrlData } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(musicStoragePath);
+      assets.musicUrl = musicUrlData.publicUrl;
+      totalCost += musicResult.cost;
+      console.log(`AI music generated via MusicGen (cost: $${musicResult.cost.toFixed(3)})`);
     }
+  } catch (err) {
+    console.warn(`Music selection/generation failed: ${err instanceof Error ? err.message : err}`);
   }
 
   // Generate video for broll shots
@@ -268,7 +287,7 @@ export async function processContentJob(job: Job<QueueJobPayload, void, string>)
         await fs.unlink(tmpPath).catch(() => {});
         usedRemotion = true;
         
-        console.log(`Job ${jobId}: Remotion render complete, reelType=${blueprint.reelType ?? "text_overlay"}`);
+        console.log(`Job ${jobId}: Remotion render complete, reelType=${blueprint.reelType ?? "voiceover"}`);
       } catch (remotionErr) {
         const errMsg = remotionErr instanceof Error ? remotionErr.message : String(remotionErr);
         console.warn(`Remotion render failed, falling back to Replicate: ${errMsg}`);
