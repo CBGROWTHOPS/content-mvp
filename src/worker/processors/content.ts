@@ -7,7 +7,7 @@ import { runReplicate } from "../../lib/replicate.js";
 import { renderReelFromBlueprint, type ReelAssetsInput } from "../../remotion/render.js";
 import { supabase, STORAGE_BUCKET, getStoragePath } from "../../lib/supabase.js";
 import { generateVoiceoverToFile, VOICE_PRESETS } from "../../lib/elevenlabs.js";
-import { selectTrack } from "../../lib/musicLibrary.js";
+import { getMusicForReel } from "../../lib/musicLibrary.js";
 import type { QueueJobPayload } from "../../types/index.js";
 
 const BLUEPRINT_FORMATS = ["reel_kit", "wide_video_kit"] as const;
@@ -107,34 +107,49 @@ async function generateReelAssets(
     }
   }
 
-  // Select music track
+  // Get music - tries library first, falls back to AI generation (MusicGen)
   if (blueprint.musicTrack?.mood) {
-    console.log(`Selecting music for job ${jobId}...`);
-    const selection = selectTrack({
-      mood: blueprint.musicTrack.mood,
-      tempo: blueprint.musicTrack.tempo,
-      genre: blueprint.musicTrack.genre,
-      minDurationSeconds: blueprint.durationSeconds,
-    });
-    
-    if (selection) {
-      try {
-        // Check if file exists
-        await fs.access(selection.filePath);
-        
-        // Upload music to Supabase
-        const musicBuffer = await fs.readFile(selection.filePath);
-        const musicStoragePath = getStoragePath(brandKey, "audio", jobId, `music-${selection.track.id}.mp3`);
+    console.log(`Getting music for job ${jobId}...`);
+    try {
+      const musicResult = await getMusicForReel({
+        mood: blueprint.musicTrack.mood,
+        tempo: blueprint.musicTrack.tempo,
+        genre: blueprint.musicTrack.genre,
+        minDurationSeconds: blueprint.durationSeconds,
+        generateIfMissing: true,
+        brandContext: brandKey,
+      });
+      
+      if (musicResult.source === "library" && musicResult.filePath) {
+        // Upload pre-licensed track from library
+        const musicBuffer = await fs.readFile(musicResult.filePath);
+        const musicStoragePath = getStoragePath(brandKey, "audio", jobId, `music-library.mp3`);
         await supabase.storage.from(STORAGE_BUCKET).upload(musicStoragePath, musicBuffer, {
           contentType: "audio/mpeg",
           upsert: true,
         });
         const { data: musicUrlData } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(musicStoragePath);
         assets.musicUrl = musicUrlData.publicUrl;
-        console.log(`Music selected: ${selection.track.id} (${selection.track.mood})`);
-      } catch {
-        console.warn(`Music file not found: ${selection.filePath}`);
+        console.log(`Library music uploaded (cost: $0)`);
+      } else if (musicResult.source === "generated" && musicResult.audioUrl) {
+        // Download AI-generated music and upload to Supabase
+        const response = await fetch(musicResult.audioUrl);
+        if (!response.ok) {
+          throw new Error(`Failed to download music: ${response.status}`);
+        }
+        const musicBuffer = Buffer.from(await response.arrayBuffer());
+        const musicStoragePath = getStoragePath(brandKey, "audio", jobId, `music-generated.mp3`);
+        await supabase.storage.from(STORAGE_BUCKET).upload(musicStoragePath, musicBuffer, {
+          contentType: "audio/mpeg",
+          upsert: true,
+        });
+        const { data: musicUrlData } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(musicStoragePath);
+        assets.musicUrl = musicUrlData.publicUrl;
+        totalCost += musicResult.cost;
+        console.log(`AI music generated via MusicGen (cost: $${musicResult.cost.toFixed(3)})`);
       }
+    } catch (err) {
+      console.warn(`Music selection/generation failed: ${err instanceof Error ? err.message : err}`);
     }
   }
 
