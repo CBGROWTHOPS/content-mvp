@@ -1,10 +1,94 @@
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { fetchJob, createJob } from "@/lib/api";
 import type { JobDetail, Asset } from "@/types/job";
+
+const POLL_INTERVAL = 3000;
+
+const PROGRESS_STEPS = [
+  { key: "queued", label: "Queued", description: "Waiting for worker" },
+  { key: "processing", label: "Starting", description: "Job picked up" },
+  { key: "generating_voiceover", label: "Voiceover", description: "Generating narration with ElevenLabs" },
+  { key: "generating_music", label: "Music", description: "Creating background track" },
+  { key: "generating_video", label: "Video", description: "Generating video clips" },
+  { key: "rendering", label: "Rendering", description: "Compositing with Remotion" },
+  { key: "uploading", label: "Uploading", description: "Saving to storage" },
+  { key: "completed", label: "Complete", description: "Ready to download" },
+];
+
+const FORMAT_ESTIMATES: Record<string, { min: number; max: number; label: string }> = {
+  image: { min: 10, max: 30, label: "10-30 seconds" },
+  image_kit: { min: 15, max: 45, label: "15-45 seconds" },
+  reel_kit: { min: 60, max: 180, label: "1-3 minutes" },
+  wide_video_kit: { min: 60, max: 180, label: "1-3 minutes" },
+  reel: { min: 30, max: 90, label: "30-90 seconds" },
+};
+
+function getStepIndex(progressStep: string | undefined, status: string): number {
+  if (status === "completed") return PROGRESS_STEPS.length - 1;
+  if (status === "failed") return -1;
+  if (status === "pending") return 0;
+  if (!progressStep) return 1;
+  const idx = PROGRESS_STEPS.findIndex(s => s.key === progressStep);
+  return idx >= 0 ? idx : 1;
+}
+
+function ProgressTracker({ progressStep, status, format }: { progressStep?: string; status: string; format: string }) {
+  const currentIndex = getStepIndex(progressStep, status);
+  const estimate = FORMAT_ESTIMATES[format] ?? FORMAT_ESTIMATES.reel_kit;
+  const isActive = status === "pending" || status === "processing";
+  
+  return (
+    <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-6">
+      <div className="mb-4 flex items-center justify-between">
+        <h2 className="text-lg font-medium">Progress</h2>
+        {isActive && (
+          <span className="text-sm text-zinc-500">
+            Est. {estimate.label}
+          </span>
+        )}
+      </div>
+      
+      <div className="space-y-3">
+        {PROGRESS_STEPS.map((step, idx) => {
+          const isCompleted = idx < currentIndex;
+          const isCurrent = idx === currentIndex && isActive;
+          const isPending = idx > currentIndex;
+          const isFailed = status === "failed" && idx === currentIndex;
+          
+          return (
+            <div key={step.key} className="flex items-center gap-3">
+              <div className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-medium ${
+                isCompleted
+                  ? "bg-emerald-500/20 text-emerald-400"
+                  : isCurrent
+                    ? "bg-blue-500/20 text-blue-400 animate-pulse"
+                    : isFailed
+                      ? "bg-red-500/20 text-red-400"
+                      : "bg-zinc-800 text-zinc-600"
+              }`}>
+                {isCompleted ? "✓" : isFailed ? "✕" : isCurrent ? "●" : "○"}
+              </div>
+              <div className="flex-1">
+                <div className={`text-sm font-medium ${
+                  isCompleted || isCurrent ? "text-zinc-200" : "text-zinc-600"
+                }`}>
+                  {step.label}
+                </div>
+                {isCurrent && (
+                  <div className="text-xs text-zinc-500">{step.description}</div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 export default function JobDetailPage() {
   const params = useParams();
@@ -16,23 +100,53 @@ export default function JobDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [regenerating, setRegenerating] = useState(false);
   const [regenerateError, setRegenerateError] = useState<string | null>(null);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
 
+  const loadJob = useCallback(async () => {
+    const result = await fetchJob(id);
+    if ("error" in result) {
+      setError(result.error);
+      return null;
+    }
+    return result.data as JobDetail;
+  }, [id]);
+
+  // Initial load
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const result = await fetchJob(id);
+      const data = await loadJob();
       if (cancelled) return;
       setLoading(false);
-      if ("error" in result) {
-        setError(result.error);
-        return;
-      }
-      setJob(result.data as JobDetail);
+      if (data) setJob(data);
     })();
-    return () => {
-      cancelled = true;
+    return () => { cancelled = true; };
+  }, [loadJob]);
+
+  // Auto-poll while pending/processing
+  useEffect(() => {
+    if (!job || job.status === "completed" || job.status === "failed") return;
+    
+    const interval = setInterval(async () => {
+      const data = await loadJob();
+      if (data) setJob(data);
+    }, POLL_INTERVAL);
+    
+    return () => clearInterval(interval);
+  }, [job?.status, loadJob]);
+
+  // Elapsed time counter
+  useEffect(() => {
+    if (!job || job.status === "completed" || job.status === "failed") return;
+    
+    const startTime = new Date(job.created_at).getTime();
+    const tick = () => {
+      setElapsedSeconds(Math.floor((Date.now() - startTime) / 1000));
     };
-  }, [id]);
+    tick();
+    const interval = setInterval(tick, 1000);
+    return () => clearInterval(interval);
+  }, [job?.created_at, job?.status]);
 
   const handleRegenerate = async () => {
     if (!job?.payload) return;
@@ -153,7 +267,7 @@ export default function JobDetailPage() {
             <dt className="text-xs font-medium uppercase tracking-wider text-zinc-500">
               Status
             </dt>
-            <dd className="mt-1">
+            <dd className="mt-1 flex items-center gap-2">
               <span
                 className={`inline-flex rounded border px-2 py-0.5 text-xs font-medium ${
                   job.status === "completed"
@@ -167,6 +281,11 @@ export default function JobDetailPage() {
               >
                 {job.status}
               </span>
+              {(job.status === "pending" || job.status === "processing") && (
+                <span className="text-xs text-zinc-500">
+                  {Math.floor(elapsedSeconds / 60)}:{String(elapsedSeconds % 60).padStart(2, "0")} elapsed
+                </span>
+              )}
             </dd>
           </div>
           <div>
@@ -189,16 +308,25 @@ export default function JobDetailPage() {
         )}
 
         {job.payload && Object.keys(job.payload).length > 0 && (
-          <div className="mt-6">
-            <dt className="text-xs font-medium uppercase tracking-wider text-zinc-500">
+          <details className="mt-6">
+            <summary className="cursor-pointer text-xs font-medium uppercase tracking-wider text-zinc-500 hover:text-zinc-400">
               Payload / Variables
-            </dt>
+            </summary>
             <pre className="mt-2 overflow-x-auto rounded border border-zinc-700 bg-zinc-950 p-4 text-xs text-zinc-400">
               {JSON.stringify(job.payload, null, 2)}
             </pre>
-          </div>
+          </details>
         )}
       </div>
+
+      {/* Progress tracker for active jobs */}
+      {(job.status === "pending" || job.status === "processing") && (
+        <ProgressTracker 
+          progressStep={(job as JobDetail & { progress_step?: string }).progress_step}
+          status={job.status}
+          format={job.format}
+        />
+      )}
 
       {primaryAsset && (job.status === "completed" || primaryAsset.url) && (
         <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-6">

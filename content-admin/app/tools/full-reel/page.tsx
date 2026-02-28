@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { BrandSelector } from "@/components/BrandSelector";
+import { InfoCard, CostEstimate, StepGuide } from "@/components/InfoCard";
 import { createJob, fetchBrands, fetchModels } from "@/lib/api";
 import { useLastGeneration } from "@/hooks/useLastGeneration";
 import type { WideVideoProjectType } from "@/types/job";
@@ -82,12 +83,20 @@ export default function FullReelToolPage() {
       <div>
         <h1 className="text-xl font-semibold text-zinc-100">Generate Full Reel</h1>
         <p className="mt-1 text-sm text-zinc-400">
-          16:9 showcase video. Uses Wide Video Kit template.
+          16:9 showcase video with voiceover and music. Uses Wide Video Kit template.
         </p>
-        <div className="mt-3 rounded border border-zinc-800/50 bg-zinc-900/30 px-3 py-2 text-xs text-zinc-500">
-          <strong className="text-zinc-400">How it works:</strong> Pick brand, project type, and theme. Queues a job; result appears in <Link href="/jobs" className="text-zinc-400 underline hover:text-white">Logs</Link>.
-        </div>
       </div>
+      
+      <InfoCard title="What you'll get" storageKey="full-reel-info-dismissed">
+        A professional 16:9 video with AI voiceover, background music, and branded end frame.
+        Generation takes 1-3 minutes. You can track progress in real-time.
+      </InfoCard>
+      
+      <CostEstimate items={[
+        { label: "Voiceover (ElevenLabs)", cost: "~$0.03" },
+        { label: "Music (MusicGen)", cost: "~$0.08" },
+        { label: "Video rendering", cost: "Free", note: "Remotion" },
+      ]} />
       <form onSubmit={handleSubmit} className="space-y-4">
         {error && (
           <div className="rounded border border-red-900/50 bg-red-950/30 px-3 py-2 text-sm text-red-400">

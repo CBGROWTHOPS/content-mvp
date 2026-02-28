@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { BrandSelector } from "@/components/BrandSelector";
+import { InfoCard, CostEstimate } from "@/components/InfoCard";
 import { createJob, fetchBrands, fetchModels } from "@/lib/api";
 import { useLastGeneration } from "@/hooks/useLastGeneration";
 import type { ReelKitHookType } from "@/types/job";
@@ -83,12 +84,22 @@ export default function SingleReelClipToolPage() {
       <div>
         <h1 className="text-xl font-semibold text-zinc-100">Generate Single Reel Clip</h1>
         <p className="mt-1 text-sm text-zinc-400">
-          6-second 9:16 clip. Uses Reel Kit template.
+          6-second 9:16 vertical video with voiceover and music. Perfect for Instagram/TikTok.
         </p>
-        <div className="mt-3 rounded border border-zinc-800/50 bg-zinc-900/30 px-3 py-2 text-xs text-zinc-500">
-          <strong className="text-zinc-400">How it works:</strong> Pick brand, hook type, and concept. Queues a job; result appears in <Link href="/jobs" className="text-zinc-400 underline hover:text-white">Logs</Link>.
-        </div>
       </div>
+      
+      <InfoCard title="How it works" storageKey="single-reel-info-dismissed">
+        <ol className="mt-1 list-inside list-decimal space-y-1">
+          <li>Pick a hook type (contrast, concept, or demo)</li>
+          <li>Add your concept or leave blank for AI generation</li>
+          <li>Job queues → voiceover → music → render (1-2 min)</li>
+          <li>Download from the job page when complete</li>
+        </ol>
+      </InfoCard>
+      
+      <CostEstimate items={[
+        { label: "Total per reel", cost: "~$0.11" },
+      ]} />
       <form onSubmit={handleSubmit} className="space-y-4">
         {error && (
           <div className="rounded border border-red-900/50 bg-red-950/30 px-3 py-2 text-sm text-red-400">

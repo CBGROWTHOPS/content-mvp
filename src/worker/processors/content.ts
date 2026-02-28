@@ -12,6 +12,24 @@ import type { QueueJobPayload } from "../../types/index.js";
 
 const BLUEPRINT_FORMATS = ["reel_kit", "wide_video_kit"] as const;
 
+type ProgressStep = 
+  | "queued" 
+  | "processing" 
+  | "generating_voiceover" 
+  | "generating_music" 
+  | "generating_video" 
+  | "rendering" 
+  | "uploading" 
+  | "completed";
+
+async function updateProgress(jobId: string, step: ProgressStep): Promise<void> {
+  await supabase
+    .from("jobs")
+    .update({ progress_step: step, updated_at: new Date().toISOString() })
+    .eq("id", jobId);
+  console.log(`Job ${jobId}: progress → ${step}`);
+}
+
 type ReelType = "text_overlay" | "voiceover" | "broll" | "talking_head";
 
 interface ExtendedBlueprint {
@@ -97,7 +115,7 @@ async function generateReelAssets(
     }
     
     if (voiceoverText) {
-      console.log(`Generating voiceover for job ${jobId}...`);
+      await updateProgress(jobId, "generating_voiceover");
       try {
         const voPath = path.join(tmpDir, "voiceover.mp3");
         const result = await generateVoiceoverToFile(
@@ -125,11 +143,11 @@ async function generateReelAssets(
 
   // Get music - tries library first, falls back to AI generation (MusicGen)
   // ALWAYS generate music unless explicitly text_overlay with no audio needed
+  await updateProgress(jobId, "generating_music");
   const musicMood = blueprint.musicTrack?.mood ?? "warm";
   const musicTempo = blueprint.musicTrack?.tempo ?? "medium";
   const musicGenre = blueprint.musicTrack?.genre ?? "ambient";
   
-  console.log(`Getting music for job ${jobId} (mood: ${musicMood})...`);
   try {
     const musicResult = await getMusicForReel({
       mood: musicMood,
@@ -174,6 +192,7 @@ async function generateReelAssets(
 
   // Generate video for broll shots
   if (reelType === "broll") {
+    await updateProgress(jobId, "generating_video");
     const videosByShot: Record<string, string> = {};
     
     for (const shot of blueprint.shots) {
@@ -224,7 +243,7 @@ export async function processContentJob(job: Job<QueueJobPayload, void, string>)
   try {
     await supabase
       .from("jobs")
-      .update({ status: "processing", updated_at: new Date().toISOString() })
+      .update({ status: "processing", progress_step: "processing", updated_at: new Date().toISOString() })
       .eq("id", jobId);
 
     let enrichedPayload = payload;
@@ -278,6 +297,7 @@ export async function processContentJob(job: Job<QueueJobPayload, void, string>)
         cost = assetCost > 0 ? assetCost : null;
         
         // Render with assets (ensure fps has a default)
+        await updateProgress(jobId, "rendering");
         const blueprintWithDefaults = {
           ...blueprint,
           fps: blueprint.fps ?? 24,
@@ -317,6 +337,7 @@ export async function processContentJob(job: Job<QueueJobPayload, void, string>)
       throw new Error("No output buffer generated");
     }
 
+    await updateProgress(jobId, "uploading");
     const { error: uploadError } = await supabase.storage
       .from(STORAGE_BUCKET)
       .upload(storagePath, buffer, {
@@ -352,6 +373,7 @@ export async function processContentJob(job: Job<QueueJobPayload, void, string>)
       .from("jobs")
       .update({
         status: "completed",
+        progress_step: "completed",
         cost: cost ?? null,
         updated_at: new Date().toISOString(),
       })
@@ -364,6 +386,7 @@ export async function processContentJob(job: Job<QueueJobPayload, void, string>)
       .from("jobs")
       .update({
         status: "failed",
+        progress_step: "failed",
         error_message: message,
         updated_at: new Date().toISOString(),
       })

@@ -73,6 +73,7 @@ export interface JobDetail extends JobListItem {
   updated_at: string;
   payload: Partial<JobInput>;
   assets: Asset[];
+  progress_step?: string;
 }
 
 export interface GenerateResponse {

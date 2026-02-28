@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { BrandSelector } from "@/components/BrandSelector";
+import { InfoCard, CostEstimate } from "@/components/InfoCard";
 import { createJob, fetchBrands, fetchModels } from "@/lib/api";
 import type { Collection } from "@/types/job";
 
@@ -84,12 +85,22 @@ export default function ImageToolPage() {
       <div>
         <h1 className="text-xl font-semibold text-zinc-100">Generate Image</h1>
         <p className="mt-1 text-sm text-zinc-400">
-          Ad-ready images in multiple formats. Uses Image Kit template.
+          Ad-ready images in multiple formats for feed, stories, and ads.
         </p>
-        <div className="mt-3 rounded border border-zinc-800/50 bg-zinc-900/30 px-3 py-2 text-xs text-zinc-500">
-          <strong className="text-zinc-400">How it works:</strong> Pick brand, collection, and description. Queues a job; result appears in <Link href="/jobs" className="text-zinc-400 underline hover:text-white">Logs</Link>.
-        </div>
       </div>
+      
+      <InfoCard title="Ad-ready formats" storageKey="image-info-dismissed">
+        Choose aspect ratio based on where you'll use the image:
+        <ul className="mt-1 list-inside list-disc space-y-0.5">
+          <li><strong>4:5</strong> — Instagram/Facebook feed posts</li>
+          <li><strong>9:16</strong> — Stories, Reels, TikTok</li>
+          <li><strong>1.91:1</strong> — Facebook/Google landscape ads</li>
+        </ul>
+      </InfoCard>
+      
+      <CostEstimate items={[
+        { label: "Image generation", cost: "~$0.02", note: "Replicate" },
+      ]} />
       <form onSubmit={handleSubmit} className="space-y-4">
         {error && (
           <div className="rounded border border-red-900/50 bg-red-950/30 px-3 py-2 text-sm text-red-400">
