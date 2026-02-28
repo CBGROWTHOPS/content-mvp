@@ -93,57 +93,61 @@ export function ShotScene({ shot, shotIndex, isLastShot, videoUrl }: ShotScenePr
         />
       )}
 
-      {/* Primary on-screen text overlay */}
-      {shot.onScreenText?.text && (
-        <div
-          style={{
-            position: "absolute",
-            top: "50%",
-            left: "50%",
-            transform: "translate(-50%, -50%)",
-            width: "80%",
-            textAlign: "center",
-          }}
-        >
-          <AnimatedText
-            text={shot.onScreenText.text}
-            startFrame={startFrame}
-            delay={8}
-            animation="slideUp"
+      {/* Primary on-screen text overlay - falls back to sceneDescription if no explicit text */}
+      {(() => {
+        const displayText = shot.onScreenText?.text || shot.sceneDescription;
+        if (!displayText) return null;
+        
+        return (
+          <div
             style={{
-              fontSize: shot.shotType === "close" ? 42 : 36,
-              fontFamily: "Georgia, serif",
-              fontWeight: 400,
-              color: "#ffffff",
-              textShadow: "0 4px 30px rgba(0,0,0,0.4)",
-              lineHeight: 1.3,
+              position: "absolute",
+              top: "50%",
+              left: "50%",
+              transform: "translate(-50%, -50%)",
+              width: "85%",
+              textAlign: "center",
             }}
-          />
-        </div>
-      )}
+          >
+            <AnimatedText
+              text={displayText}
+              startFrame={startFrame}
+              delay={8}
+              animation="slideUp"
+              style={{
+                fontSize: shot.shotType === "close" ? 42 : displayText.length > 50 ? 28 : 36,
+                fontFamily: "Georgia, serif",
+                fontWeight: 400,
+                color: "#ffffff",
+                textShadow: "0 4px 30px rgba(0,0,0,0.5)",
+                lineHeight: 1.35,
+              }}
+            />
+          </div>
+        );
+      })()}
 
-      {/* Scene description as subtle caption (optional - can be removed for production) */}
+      {/* Shot number indicator (subtle) */}
       <div
         style={{
           position: "absolute",
           bottom: 60,
           left: 40,
-          right: 40,
-          opacity: interpolate(localFrame, [15, 25], [0, 0.4], {
+          opacity: interpolate(localFrame, [15, 25], [0, 0.3], {
             extrapolateRight: "clamp",
           }),
         }}
       >
         <div
           style={{
-            fontSize: 12,
+            fontSize: 11,
             fontFamily: "system-ui, sans-serif",
-            color: "rgba(255,255,255,0.5)",
-            letterSpacing: 1,
+            color: "rgba(255,255,255,0.4)",
+            letterSpacing: 2,
             textTransform: "uppercase",
           }}
         >
-          {shot.sceneDescription}
+          {String(shotIndex + 1).padStart(2, "0")}
         </div>
       </div>
 

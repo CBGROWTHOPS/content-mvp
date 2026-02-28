@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { BrandSelector } from "@/components/BrandSelector";
-import { InfoCard, CostEstimate, StepGuide } from "@/components/InfoCard";
+import { InfoCard, CostEstimate, OutputExpectation } from "@/components/InfoCard";
 import { createJob, fetchBrands, fetchModels } from "@/lib/api";
 import { useLastGeneration } from "@/hooks/useLastGeneration";
 import type { WideVideoProjectType } from "@/types/job";
@@ -87,16 +87,27 @@ export default function FullReelToolPage() {
         </p>
       </div>
       
-      <InfoCard title="What you'll get" storageKey="full-reel-info-dismissed">
-        A professional 16:9 video with AI voiceover, background music, and branded end frame.
-        Generation takes 1-3 minutes. You can track progress in real-time.
-      </InfoCard>
+      <OutputExpectation 
+        title="What you'll get"
+        items={[
+          { label: "16:9 landscape video (MP4)", status: "included" },
+          { label: "Text overlays on each shot", status: "included", note: "auto-generated" },
+          { label: "Background music", status: "included", note: "AI-generated" },
+          { label: "Voiceover narration", status: "included", note: "ElevenLabs" },
+          { label: "Branded end frame with CTA", status: "included" },
+        ]}
+      />
       
       <CostEstimate items={[
         { label: "Voiceover (ElevenLabs)", cost: "~$0.03" },
         { label: "Music (MusicGen)", cost: "~$0.08" },
         { label: "Video rendering", cost: "Free", note: "Remotion" },
       ]} />
+      
+      <InfoCard title="Generation time" storageKey="full-reel-time-dismissed">
+        Takes 1-3 minutes. You can track progress in real-time on the job page.
+      </InfoCard>
+      
       <form onSubmit={handleSubmit} className="space-y-4">
         {error && (
           <div className="rounded border border-red-900/50 bg-red-950/30 px-3 py-2 text-sm text-red-400">

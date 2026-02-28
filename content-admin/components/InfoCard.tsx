@@ -94,3 +94,45 @@ export function CostEstimate({
     </div>
   );
 }
+
+export function OutputExpectation({ 
+  title,
+  items,
+  warning,
+}: { 
+  title: string;
+  items: { label: string; status: "included" | "not_included" | "optional"; note?: string }[];
+  warning?: string;
+}) {
+  return (
+    <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-4">
+      <h4 className="mb-3 text-sm font-medium text-zinc-300">{title}</h4>
+      <div className="space-y-2">
+        {items.map((item, i) => (
+          <div key={i} className="flex items-center gap-2 text-sm">
+            <span className={`flex h-5 w-5 items-center justify-center rounded-full text-xs ${
+              item.status === "included" 
+                ? "bg-emerald-500/20 text-emerald-400" 
+                : item.status === "optional"
+                  ? "bg-amber-500/20 text-amber-400"
+                  : "bg-zinc-800 text-zinc-500"
+            }`}>
+              {item.status === "included" ? "✓" : item.status === "optional" ? "?" : "✕"}
+            </span>
+            <span className={item.status === "not_included" ? "text-zinc-500" : "text-zinc-300"}>
+              {item.label}
+            </span>
+            {item.note && (
+              <span className="text-xs text-zinc-500">— {item.note}</span>
+            )}
+          </div>
+        ))}
+      </div>
+      {warning && (
+        <div className="mt-3 rounded border border-amber-900/30 bg-amber-950/20 px-3 py-2 text-xs text-amber-300/80">
+          ⚠️ {warning}
+        </div>
+      )}
+    </div>
+  );
+}

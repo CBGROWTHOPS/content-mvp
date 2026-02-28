@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { BrandSelector } from "@/components/BrandSelector";
-import { InfoCard, CostEstimate } from "@/components/InfoCard";
+import { InfoCard, CostEstimate, OutputExpectation } from "@/components/InfoCard";
 import { createJob, fetchBrands, fetchModels } from "@/lib/api";
 import { useLastGeneration } from "@/hooks/useLastGeneration";
 import type { ReelKitHookType } from "@/types/job";
@@ -100,6 +100,18 @@ export default function SingleReelClipToolPage() {
       <CostEstimate items={[
         { label: "Total per reel", cost: "~$0.11" },
       ]} />
+      
+      <OutputExpectation 
+        title="What you'll get"
+        items={[
+          { label: "9:16 vertical video (MP4)", status: "included" },
+          { label: "Text overlays on each shot", status: "included", note: "auto-generated" },
+          { label: "Background music", status: "included", note: "AI-generated" },
+          { label: "Voiceover narration", status: "included", note: "ElevenLabs" },
+          { label: "Branded end frame with CTA", status: "included" },
+        ]}
+      />
+      
       <form onSubmit={handleSubmit} className="space-y-4">
         {error && (
           <div className="rounded border border-red-900/50 bg-red-950/30 px-3 py-2 text-sm text-red-400">
