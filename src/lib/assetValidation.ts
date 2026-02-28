@@ -296,8 +296,13 @@ export interface VideoProbeResult {
 
 export async function probeVideoFile(filePath: string): Promise<VideoProbeResult> {
   try {
-    const cmd = `ffprobe -v quiet -print_format json -show_format -show_streams "${filePath}"`;
-    const { stdout } = await execAsync(cmd, { timeout: 30000 });
+    const cmd = `ffprobe -v error -print_format json -show_format -show_streams "${filePath}"`;
+    const { stdout, stderr } = await execAsync(cmd, { timeout: 30000 });
+    
+    if (stderr) {
+      console.log(`ffprobe stderr for ${filePath}: ${stderr}`);
+    }
+    
     const data = JSON.parse(stdout);
 
     const videoStream = data.streams?.find(
@@ -328,6 +333,8 @@ export async function probeVideoFile(filePath: string): Promise<VideoProbeResult
       codec: videoStream.codec_name ?? "",
     };
   } catch (err) {
+    const errorMsg = err instanceof Error ? err.message : String(err);
+    console.error(`ffprobe error for ${filePath}: ${errorMsg}`);
     return {
       hasVideoStream: false,
       hasFrames: false,
@@ -335,7 +342,7 @@ export async function probeVideoFile(filePath: string): Promise<VideoProbeResult
       width: 0,
       height: 0,
       codec: "",
-      error: err instanceof Error ? err.message : "ffprobe failed",
+      error: errorMsg,
     };
   }
 }

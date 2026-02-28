@@ -309,6 +309,9 @@ async function generateReelAssets(
             const localVideoPath = path.join(tmpDir, `shot-${shot.shotId}.mp4`);
             await fs.writeFile(localVideoPath, videoBuffer);
             
+            const fileSizeKB = Math.round(videoBuffer.length / 1024);
+            console.log(`Shot ${shot.shotId}: downloaded ${fileSizeKB}KB, saved to ${localVideoPath}`);
+            
             const expectedDuration = shot.timeEnd - shot.timeStart;
             const gateBResult = await validateGeneratedVideoAsset(
               shot.shotId,
