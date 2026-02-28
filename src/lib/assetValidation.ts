@@ -294,9 +294,9 @@ export interface VideoProbeResult {
   error?: string;
 }
 
-export async function probeVideoUrl(url: string): Promise<VideoProbeResult> {
+export async function probeVideoFile(filePath: string): Promise<VideoProbeResult> {
   try {
-    const cmd = `ffprobe -v quiet -print_format json -show_format -show_streams "${url}"`;
+    const cmd = `ffprobe -v quiet -print_format json -show_format -show_streams "${filePath}"`;
     const { stdout } = await execAsync(cmd, { timeout: 30000 });
     const data = JSON.parse(stdout);
 
@@ -340,6 +340,10 @@ export async function probeVideoUrl(url: string): Promise<VideoProbeResult> {
   }
 }
 
+export async function probeVideoUrl(url: string): Promise<VideoProbeResult> {
+  return probeVideoFile(url);
+}
+
 export interface GateBResult {
   pass: boolean;
   probe: VideoProbeResult;
@@ -347,10 +351,10 @@ export interface GateBResult {
 }
 
 export async function validateAssetGateB(
-  assetUrl: string,
+  assetUrlOrPath: string,
   expectedMinDuration: number = 1
 ): Promise<GateBResult> {
-  const probe = await probeVideoUrl(assetUrl);
+  const probe = await probeVideoFile(assetUrlOrPath);
 
   if (!probe.hasVideoStream) {
     return {

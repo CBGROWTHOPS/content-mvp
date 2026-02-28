@@ -308,33 +308,40 @@ async function generateReelAssets(
             }
             
             const videoBuffer = Buffer.from(await videoResp.arrayBuffer());
+            
+            // =========================================================
+            // GATE B: Pre-Upload Local File Validation (ffprobe)
+            // Save to temp file, validate locally, then upload if valid
+            // =========================================================
+            const localVideoPath = path.join(tmpDir, `shot-${shot.shotId}.mp4`);
+            await fs.writeFile(localVideoPath, videoBuffer);
+            
+            const expectedDuration = shot.timeEnd - shot.timeStart;
+            const gateBResult = await validateGeneratedVideoAsset(
+              shot.shotId,
+              localVideoPath,
+              expectedDuration
+            );
+            
+            if (!gateBResult.overallPass) {
+              console.warn(`GATE B FAILED for shot ${shot.shotId}: ${gateBResult.gateB.reason}`);
+              if (attempt < maxRetries - 1) {
+                lastError = `GATE B: ${gateBResult.gateB.reason}`;
+                continue;
+              }
+              console.error(`GATE B: Shot ${shot.shotId} invalid after retries, skipping upload`);
+              break;
+            }
+            
+            console.log(`GATE B PASSED for shot ${shot.shotId}: ${gateBResult.gateB.probe.duration}s video, ${gateBResult.gateB.probe.codec}`);
+            
+            // Only upload if validation passed
             const videoStoragePath = getStoragePath(brandKey, "video", jobId, `shot-${shot.shotId}.mp4`);
             await supabase.storage.from(STORAGE_BUCKET).upload(videoStoragePath, videoBuffer, {
               contentType: "video/mp4",
               upsert: true,
             });
             const { data: videoUrlData } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(videoStoragePath);
-            
-            // =========================================================
-            // GATE B: Post-Generation Asset Validation (ffprobe)
-            // Validates the actual video has frames and correct duration
-            // =========================================================
-            const expectedDuration = shot.timeEnd - shot.timeStart;
-            const gateBResult = await validateGeneratedVideoAsset(
-              shot.shotId,
-              videoUrlData.publicUrl,
-              expectedDuration
-            );
-            
-            if (!gateBResult.overallPass) {
-              console.warn(`GATE B WARNING for shot ${shot.shotId}: ${gateBResult.gateB.reason}`);
-              if (attempt < maxRetries - 1) {
-                lastError = `GATE B: ${gateBResult.gateB.reason}`;
-                continue;
-              }
-            } else {
-              console.log(`GATE B PASSED for shot ${shot.shotId}: ${gateBResult.gateB.probe.duration}s video, ${gateBResult.gateB.probe.codec}`);
-            }
             
             videosByShot[shot.shotId] = videoUrlData.publicUrl;
             totalCost += cost ?? 0;
