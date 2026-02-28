@@ -8,6 +8,16 @@ import { renderReelFromBlueprint, type ReelAssetsInput } from "../../remotion/re
 import { supabase, STORAGE_BUCKET, getStoragePath } from "../../lib/supabase.js";
 import { generateVoiceoverToFile, VOICE_PRESETS } from "../../lib/elevenlabs.js";
 import { getMusicForReel } from "../../lib/musicLibrary.js";
+import { 
+  validateBlueprint, 
+  validateShotAsset, 
+  getRulesFromBrief,
+  validateShotContractGateA,
+  validateGeneratedVideoAsset,
+  type ShotForValidation,
+  type GateAResult,
+} from "../../lib/assetValidation.js";
+import type { CompactCreativeBrief } from "../../lib/compactBrief.js";
 import type { QueueJobPayload } from "../../types/index.js";
 
 const BLUEPRINT_FORMATS = ["reel_kit", "wide_video_kit"] as const;
@@ -15,9 +25,11 @@ const BLUEPRINT_FORMATS = ["reel_kit", "wide_video_kit"] as const;
 type ProgressStep = 
   | "queued" 
   | "processing" 
+  | "validating_contract"
   | "generating_voiceover" 
   | "generating_music" 
   | "generating_video" 
+  | "validating_assets"
   | "rendering" 
   | "uploading" 
   | "completed";
@@ -86,15 +98,63 @@ function mergeGenerationIntoVariables(
 
 /**
  * Generate audio/video assets based on reel type and blueprint.
+ * Validates shots against brief rules before and after generation.
+ * 
+ * GATE A: Pre-generation contract validation (fails fast)
+ * GATE B: Post-generation asset validation (validates actual video)
  */
 async function generateReelAssets(
   blueprint: ExtendedBlueprint,
   jobId: string,
-  brandKey: string
+  brandKey: string,
+  brief?: CompactCreativeBrief
 ): Promise<{ assets: ReelAssetsInput; totalCost: number }> {
+  const rules = getRulesFromBrief(brief);
+  const reelType = blueprint.reelType ?? "voiceover";
+  
+  // =========================================================================
+  // GATE A: Pre-Generation Contract Validation
+  // Fails fast if shots are missing required fields
+  // =========================================================================
+  await updateProgress(jobId, "validating_contract");
+  
+  const shotsForValidation: ShotForValidation[] = blueprint.shots.map(shot => ({
+    shotId: shot.shotId,
+    visualSource: shot.visualSource,
+    onScreenText: shot.onScreenText,
+    videoPrompt: shot.videoPrompt,
+    sceneDescription: shot.sceneDescription,
+    timeStart: shot.timeStart,
+    timeEnd: shot.timeEnd,
+  }));
+  
+  const gateA: GateAResult = validateShotContractGateA(shotsForValidation, {
+    requireVideoPrompt: reelType === "broll",
+    requireDuration: true,
+    requireOnScreenText: true,
+    requireSceneDescription: true,
+  });
+  
+  if (!gateA.pass) {
+    const failureDetails = gateA.failures.map(f => f.reason).join("; ");
+    console.error(`GATE A FAILED: ${failureDetails}`);
+    throw new Error(`Shot contract validation failed: ${failureDetails}`);
+  }
+  console.log(`GATE A PASSED: All ${blueprint.shots.length} shots have valid contracts`);
+  
+  const blueprintValidation = validateBlueprint(
+    blueprint.shots as ShotForValidation[],
+    brief
+  );
+  
+  if (!blueprintValidation.pass) {
+    const failureMessages = blueprintValidation.failures
+      .map(f => f.reason)
+      .join("; ");
+    console.warn(`Blueprint validation warnings: ${failureMessages}`);
+  }
   const assets: ReelAssetsInput = {};
   let totalCost = 0;
-  const reelType = blueprint.reelType ?? "voiceover";
   const tmpDir = path.join(os.tmpdir(), `reel-assets-${jobId}`);
   await fs.mkdir(tmpDir, { recursive: true });
 
@@ -190,7 +250,7 @@ async function generateReelAssets(
     console.warn(`Music selection/generation failed: ${err instanceof Error ? err.message : err}`);
   }
 
-  // Generate video for broll shots
+  // Generate video for broll shots with validation
   if (reelType === "broll") {
     await updateProgress(jobId, "generating_video");
     const videosByShot: Record<string, string> = {};
@@ -198,17 +258,46 @@ async function generateReelAssets(
     for (const shot of blueprint.shots) {
       if (shot.visualSource === "generated_video" && shot.videoPrompt) {
         console.log(`Generating video for shot ${shot.shotId}...`);
-        try {
-          const shotDuration = shot.timeEnd - shot.timeStart;
-          const { url, cost } = await runReplicate(
-            "minimax/video-01",
-            shot.videoPrompt,
-            { lengthSeconds: Math.ceil(shotDuration), aspectRatio: "9:16" }
-          );
-          
-          // Download and upload to Supabase
-          const videoResp = await fetch(url);
-          if (videoResp.ok) {
+        
+        const maxRetries = 2;
+        let lastError: string | undefined;
+        
+        for (let attempt = 0; attempt < maxRetries; attempt++) {
+          try {
+            const shotDuration = shot.timeEnd - shot.timeStart;
+            const strictMode = attempt > 0;
+            const prompt = strictMode 
+              ? `${shot.videoPrompt}. MUST be real video footage, cinematic, no abstract or blank backgrounds.`
+              : shot.videoPrompt;
+            
+            const { url, cost } = await runReplicate(
+              "minimax/video-01",
+              prompt,
+              { lengthSeconds: Math.ceil(shotDuration), aspectRatio: "9:16" }
+            );
+            
+            const videoResp = await fetch(url);
+            if (!videoResp.ok) {
+              throw new Error(`Failed to fetch video: ${videoResp.status}`);
+            }
+            
+            const contentType = videoResp.headers.get("content-type");
+            const validation = validateShotAsset(
+              shot as ShotForValidation,
+              url,
+              contentType,
+              rules
+            );
+            
+            if (!validation.pass) {
+              if (validation.canRetry && attempt < maxRetries - 1) {
+                console.warn(`Shot ${shot.shotId} failed validation (${validation.reason}), retrying with strict mode...`);
+                lastError = validation.reason;
+                continue;
+              }
+              console.warn(`Shot ${shot.shotId} failed validation: ${validation.reason}`);
+            }
+            
             const videoBuffer = Buffer.from(await videoResp.arrayBuffer());
             const videoStoragePath = getStoragePath(brandKey, "video", jobId, `shot-${shot.shotId}.mp4`);
             await supabase.storage.from(STORAGE_BUCKET).upload(videoStoragePath, videoBuffer, {
@@ -216,12 +305,42 @@ async function generateReelAssets(
               upsert: true,
             });
             const { data: videoUrlData } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(videoStoragePath);
+            
+            // =========================================================
+            // GATE B: Post-Generation Asset Validation (ffprobe)
+            // Validates the actual video has frames and correct duration
+            // =========================================================
+            const expectedDuration = shot.timeEnd - shot.timeStart;
+            const gateBResult = await validateGeneratedVideoAsset(
+              shot.shotId,
+              videoUrlData.publicUrl,
+              expectedDuration
+            );
+            
+            if (!gateBResult.overallPass) {
+              console.warn(`GATE B WARNING for shot ${shot.shotId}: ${gateBResult.gateB.reason}`);
+              if (attempt < maxRetries - 1) {
+                lastError = `GATE B: ${gateBResult.gateB.reason}`;
+                continue;
+              }
+            } else {
+              console.log(`GATE B PASSED for shot ${shot.shotId}: ${gateBResult.gateB.probe.duration}s video, ${gateBResult.gateB.probe.codec}`);
+            }
+            
             videosByShot[shot.shotId] = videoUrlData.publicUrl;
             totalCost += cost ?? 0;
-            console.log(`Shot ${shot.shotId} video generated, cost: $${(cost ?? 0).toFixed(4)}`);
+            console.log(`Shot ${shot.shotId} video generated (attempt ${attempt + 1}), cost: $${(cost ?? 0).toFixed(4)}`);
+            break;
+          } catch (err) {
+            lastError = err instanceof Error ? err.message : String(err);
+            if (attempt < maxRetries - 1) {
+              console.warn(`Shot ${shot.shotId} generation attempt ${attempt + 1} failed: ${lastError}, retrying...`);
+            }
           }
-        } catch (err) {
-          console.warn(`Video generation failed for shot ${shot.shotId}: ${err instanceof Error ? err.message : err}`);
+        }
+        
+        if (!videosByShot[shot.shotId] && lastError) {
+          console.warn(`Video generation failed for shot ${shot.shotId} after ${maxRetries} attempts: ${lastError}`);
         }
       }
     }
@@ -251,6 +370,7 @@ export async function processContentJob(job: Job<QueueJobPayload, void, string>)
     type GenRow = {
       marketing_output?: { headline?: string; primaryText?: string; cta?: string } | null;
       reel_blueprint?: { shots?: { sceneDescription?: string }[]; durationSeconds?: number } | null;
+      compact_brief?: CompactCreativeBrief | null;
     } | null;
     let gen: GenRow = null;
     if (genId) {
@@ -286,13 +406,22 @@ export async function processContentJob(job: Job<QueueJobPayload, void, string>)
     let usedRemotion = false;
     if (useRemotion) {
       const blueprint = gen!.reel_blueprint as ExtendedBlueprint;
+      // Prefer brief from payload (preset/cache), fall back to generation record
+      const brief = (payload as { compact_brief?: CompactCreativeBrief }).compact_brief 
+        ?? gen!.compact_brief 
+        ?? undefined;
+      const briefKey = (payload as { brief_key?: string }).brief_key;
+      if (briefKey) {
+        console.log(`Using compact brief from key: ${briefKey}`);
+      }
       const tmpPath = path.join(os.tmpdir(), `remotion-${jobId}.mp4`);
       try {
-        // Generate audio/video assets based on reel type
+        // Generate audio/video assets based on reel type with validation
         const { assets, totalCost: assetCost } = await generateReelAssets(
           blueprint,
           jobId,
-          payload.brand_key
+          payload.brand_key,
+          brief
         );
         cost = assetCost > 0 ? assetCost : null;
         

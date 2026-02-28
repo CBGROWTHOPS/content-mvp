@@ -1,85 +1,91 @@
-import Link from "next/link";
+import { PlatformCard, AdvancedToolLink } from "@/components/PlatformCard";
 
-const tools = [
+const platforms = [
   {
-    id: "marketing",
-    title: "Marketing Copy",
-    description: "Headlines, CTAs, captions, and copy variations for ads and social.",
-    href: "/tools/marketing",
-    icon: "✍️",
+    id: "facebook-ads",
+    icon: "📘",
+    title: "Facebook Ads",
+    subtitle: "Ad images + copy for campaigns",
+    outputs: ["4:5 Image", "1.91:1 Image", "Ad Copy", "Headlines"],
+    href: "/tools/facebook-ads",
+    primary: true,
+    badge: "Popular",
   },
   {
-    id: "director-brief",
-    title: "Director Brief",
-    description: "Creative direction: concept, art, camera, lighting, typography, sound.",
-    href: "/tools/director-brief",
-    icon: "🎬",
+    id: "instagram-reels",
+    icon: "📸",
+    title: "Instagram Reels",
+    subtitle: "Vertical videos with voice + music",
+    outputs: ["9:16 Video", "Voiceover", "Music", "Text Overlays"],
+    href: "/tools/instagram-reels",
+    primary: true,
   },
   {
-    id: "reel-storyboard",
-    title: "Reel Storyboard",
-    description: "Shot-by-shot breakdown with timing, movement, and scene notes.",
-    href: "/tools/reel-storyboard",
-    icon: "📋",
+    id: "youtube-shorts",
+    icon: "▶️",
+    title: "YouTube Shorts",
+    subtitle: "Vertical clips optimized for YouTube",
+    outputs: ["9:16 Video", "Hook Text", "CTA End Frame"],
+    href: "/tools/youtube-shorts",
+    primary: false,
   },
   {
-    id: "prompt-upgrade",
-    title: "Prompt Upgrade",
-    description: "Improve and polish prompts for image or video generation.",
-    href: "/tools/prompt-upgrade",
-    icon: "✨",
+    id: "linkedin",
+    icon: "💼",
+    title: "LinkedIn Content",
+    subtitle: "Professional posts for B2B",
+    outputs: ["4:5 Image", "16:9 Video", "Post Copy"],
+    href: "/tools/linkedin",
+    primary: false,
   },
-  {
-    id: "image",
-    title: "Image",
-    description: "Generate a still image. 4:5 editorial or custom aspect.",
-    href: "/tools/image",
-    icon: "🖼️",
-  },
-  {
-    id: "single-reel-clip",
-    title: "Single Reel Clip",
-    description: "Generate one short reel clip (6s, 9:16).",
-    href: "/tools/single-reel-clip",
-    icon: "📱",
-  },
-  {
-    id: "full-reel",
-    title: "Full Reel",
-    description: "Generate a full 16:9 showcase video.",
-    href: "/tools/full-reel",
-    icon: "🎥",
-  },
+];
+
+const advancedTools = [
+  { href: "/tools/advanced/director-brief", label: "Director Brief" },
+  { href: "/tools/advanced/reel-storyboard", label: "Storyboard" },
+  { href: "/tools/advanced/marketing", label: "Marketing Copy" },
+  { href: "/tools/advanced/prompt-upgrade", label: "Prompt Upgrade" },
+  { href: "/tools/advanced/image", label: "Image" },
+  { href: "/tools/advanced/single-reel-clip", label: "Single Clip" },
+  { href: "/tools/advanced/full-reel", label: "Full Reel" },
 ];
 
 export default function ToolsPage() {
   return (
-    <div className="space-y-8">
+    <div className="space-y-10">
       <div>
-        <h1 className="text-2xl font-semibold text-zinc-100">Content Tools</h1>
-        <p className="mt-1 text-sm text-zinc-400">
-          Each tool does one thing. Pick one and go.
+        <h1 className="text-2xl font-semibold text-zinc-100">
+          What do you want to create?
+        </h1>
+        <p className="mt-2 text-sm text-zinc-400">
+          Pick a platform. We'll generate the right formats and copy.
         </p>
       </div>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {tools.map((tool) => (
-          <Link
-            key={tool.id}
-            href={tool.href}
-            className="group block rounded-lg border border-zinc-800 bg-zinc-900/50 p-5 transition-colors hover:border-zinc-600 hover:bg-zinc-900/80"
-          >
-            <span className="text-2xl">{tool.icon}</span>
-            <h2 className="mt-3 font-medium text-zinc-100 group-hover:text-white">
-              {tool.title}
-            </h2>
-            <p className="mt-1.5 text-sm text-zinc-500 group-hover:text-zinc-400">
-              {tool.description}
-            </p>
-            <span className="mt-3 inline-block text-xs font-medium text-zinc-500 group-hover:text-zinc-400">
-              Open →
-            </span>
-          </Link>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        {platforms.map((platform) => (
+          <PlatformCard
+            key={platform.id}
+            href={platform.href}
+            icon={platform.icon}
+            title={platform.title}
+            subtitle={platform.subtitle}
+            outputs={platform.outputs}
+            badge={platform.badge}
+            primary={platform.primary}
+          />
         ))}
+      </div>
+
+      <div className="border-t border-zinc-800 pt-6">
+        <h2 className="mb-3 text-sm font-medium text-zinc-500">
+          Advanced Tools
+        </h2>
+        <div className="flex flex-wrap gap-2">
+          {advancedTools.map((tool) => (
+            <AdvancedToolLink key={tool.href} href={tool.href} label={tool.label} />
+          ))}
+        </div>
       </div>
     </div>
   );

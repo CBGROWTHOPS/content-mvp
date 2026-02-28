@@ -303,3 +303,127 @@ export async function createJob(
     };
   }
 }
+
+// Compact Brief API
+
+export interface CompactCreativeBrief {
+  v: 1;
+  concept: string;
+  tone: string;
+  look: string;
+  camera: string;
+  light: string;
+  music: string;
+  vo: string;
+  text: string;
+  rules: string[];
+}
+
+export interface BriefPreset {
+  id: string;
+  concept: string;
+}
+
+export interface CompactBriefResult {
+  brief: CompactCreativeBrief;
+  briefKey: string;
+  cached: boolean;
+  tokenUsage: { prompt: number; completion: number; total: number };
+}
+
+export async function fetchBriefPresets(): Promise<
+  { data: BriefPreset[] } | { error: string }
+> {
+  try {
+    const res = await fetch(`${getBaseUrl()}/brief-presets`, {
+      cache: "no-store",
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: res.statusText }));
+      return { error: (err as { error?: string }).error ?? res.statusText };
+    }
+    const json = await res.json();
+    return { data: (json as { presets: BriefPreset[] }).presets };
+  } catch (e) {
+    return {
+      error: e instanceof Error ? e.message : "Failed to fetch presets",
+    };
+  }
+}
+
+export async function generateCompactBrief(
+  params: {
+    brandId?: string;
+    goal?: string;
+    topic?: string;
+    audience?: string;
+    style?: string;
+    constraints?: string;
+    usePreset?: string;
+    skipCache?: boolean;
+  }
+): Promise<{ data: CompactBriefResult } | { error: string }> {
+  try {
+    const res = await fetch(`${getBaseUrl()}/compact-brief`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(params),
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      return { error: (json as { error?: string }).error ?? res.statusText };
+    }
+    return { data: json as CompactBriefResult };
+  } catch (e) {
+    return {
+      error: e instanceof Error ? e.message : "Failed to generate brief",
+    };
+  }
+}
+
+export interface StoryboardResult {
+  shots: Array<{
+    shotId: string;
+    timeStart: number;
+    timeEnd: number;
+    shotType: string;
+    cameraMovement: string;
+    sceneDescription: string;
+    visualSource: string;
+    videoPrompt?: string;
+    onScreenText?: { text: string };
+    lightingNotes?: string;
+  }>;
+  voiceoverScript?: {
+    fullScript: string;
+    segments: Array<{ shotId: string; text: string; emotion?: string }>;
+  };
+  musicTrack?: { mood: string; tempo: string; genre?: string };
+  tokenUsage: { prompt: number; completion: number; total: number };
+}
+
+export async function generateStoryboard(
+  params: {
+    brief: CompactCreativeBrief;
+    durationSeconds: number;
+    shotCount: number;
+    reelType: "text_overlay" | "voiceover" | "broll" | "talking_head";
+  }
+): Promise<{ data: StoryboardResult } | { error: string }> {
+  try {
+    const res = await fetch(`${getBaseUrl()}/storyboard-from-brief`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(params),
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      return { error: (json as { error?: string }).error ?? res.statusText };
+    }
+    return { data: json as StoryboardResult };
+  } catch (e) {
+    return {
+      error: e instanceof Error ? e.message : "Failed to generate storyboard",
+    };
+  }
+}

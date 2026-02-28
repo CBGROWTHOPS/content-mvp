@@ -5,11 +5,18 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { BrandSelector } from "@/components/BrandSelector";
 import { InfoCard, CostEstimate, OutputExpectation } from "@/components/InfoCard";
-import { createJob, fetchBrands, fetchModels } from "@/lib/api";
+import { 
+  createJob, 
+  fetchBrands, 
+  fetchModels, 
+  fetchBriefPresets,
+  type BriefPreset,
+} from "@/lib/api";
 import { useLastGeneration } from "@/hooks/useLastGeneration";
 import type { WideVideoProjectType } from "@/types/job";
 
 type GenerationOption = "none" | "last" | "paste";
+type BriefOption = "none" | "preset" | "key";
 
 const PROJECT_TYPES: { value: WideVideoProjectType; label: string }[] = [
   { value: "high-rise", label: "High-rise" },
@@ -31,6 +38,12 @@ export default function FullReelToolPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Brief mode state
+  const [briefOption, setBriefOption] = useState<BriefOption>("none");
+  const [briefPresets, setBriefPresets] = useState<BriefPreset[]>([]);
+  const [selectedPreset, setSelectedPreset] = useState("");
+  const [briefKey, setBriefKey] = useState("");
+
   useEffect(() => {
     fetchModels().then((r) => {
       if ("data" in r) setModels(r.data.filter((m) => m.formats_supported.includes("wide_video_kit")));
@@ -40,6 +53,9 @@ export default function FullReelToolPage() {
         setBrands(r.data);
         if (r.data.length > 0 && !brandId) setBrandId(r.data[0]!.key);
       }
+    });
+    fetchBriefPresets().then((r) => {
+      if ("data" in r) setBriefPresets(r.data);
     });
   }, []);
 
@@ -64,6 +80,14 @@ export default function FullReelToolPage() {
     if (modelKey) payload.model_key = modelKey;
     const genId = useGeneration === "last" ? lastId ?? undefined : useGeneration === "paste" ? pasteId || undefined : undefined;
     if (genId) payload.generation_id = genId;
+    
+    // Add brief mode to payload
+    if (briefOption === "preset" && selectedPreset) {
+      payload.preset_id = selectedPreset;
+    } else if (briefOption === "key" && briefKey) {
+      payload.brief_key = briefKey;
+    }
+    
     const result = await createJob(payload);
     setLoading(false);
     if ("data" in result) {
@@ -154,6 +178,58 @@ export default function FullReelToolPage() {
               placeholder="Generation ID"
               className="mt-2 w-full rounded border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 placeholder-zinc-500 focus:border-zinc-600 focus:outline-none"
             />
+          )}
+        </div>
+        
+        {/* Brief Mode - Testing without full LLM generation */}
+        <div className="rounded border border-zinc-700/50 bg-zinc-900/30 p-3">
+          <label className="mb-2 block text-sm font-medium text-zinc-400">
+            Creative Brief Mode
+            <span className="ml-2 text-xs font-normal text-zinc-500">(Testing)</span>
+          </label>
+          <select
+            value={briefOption}
+            onChange={(e) => setBriefOption(e.target.value as BriefOption)}
+            className="w-full rounded border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 focus:border-zinc-600 focus:outline-none"
+          >
+            <option value="none">Use full LLM generation</option>
+            <option value="preset">Use preset brief (free)</option>
+            <option value="key">Use cached brief key</option>
+          </select>
+          
+          {briefOption === "preset" && (
+            <div className="mt-2">
+              <select
+                value={selectedPreset}
+                onChange={(e) => setSelectedPreset(e.target.value)}
+                className="w-full rounded border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 focus:border-zinc-600 focus:outline-none"
+              >
+                <option value="">Select a preset</option>
+                {briefPresets.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.id}: {p.concept}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-1 text-xs text-zinc-500">
+                Presets are free - no LLM tokens used
+              </p>
+            </div>
+          )}
+          
+          {briefOption === "key" && (
+            <div className="mt-2">
+              <input
+                type="text"
+                value={briefKey}
+                onChange={(e) => setBriefKey(e.target.value)}
+                placeholder="e.g., abc123def456"
+                className="w-full rounded border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 placeholder-zinc-500 focus:border-zinc-600 focus:outline-none font-mono"
+              />
+              <p className="mt-1 text-xs text-zinc-500">
+                Use a cached brief from a previous generation
+              </p>
+            </div>
           )}
         </div>
         <div>

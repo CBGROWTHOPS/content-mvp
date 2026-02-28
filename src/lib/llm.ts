@@ -557,6 +557,160 @@ export async function generateStructuredContent(
   };
 }
 
+import type { CompactCreativeBrief } from "./compactBrief.js";
+
+export interface StoryboardInput {
+  brief: CompactCreativeBrief;
+  durationSeconds: number;
+  shotCount: number;
+  reelType: ReelType;
+}
+
+export interface StoryboardResult {
+  shots: ReelBlueprintShot[];
+  voiceoverScript?: VoiceoverScript;
+  musicTrack?: MusicTrackSelection;
+  tokenUsage: {
+    prompt: number;
+    completion: number;
+    total: number;
+  };
+}
+
+function buildStoryboardPrompt(input: StoryboardInput): string {
+  const { brief, durationSeconds, shotCount, reelType } = input;
+  
+  const lines = [
+    "You have a creative brief contract to follow EXACTLY:",
+    JSON.stringify(brief, null, 2),
+    "",
+    "Generate shots that MUST follow:",
+    `- look: ${brief.look}`,
+    `- camera: ${brief.camera}`,
+    `- light: ${brief.light}`,
+    `- text style: ${brief.text}`,
+    `- rules: ${brief.rules.join(", ")}`,
+    "",
+    `Duration: ${durationSeconds} seconds`,
+    `Shot count: ${shotCount} shots`,
+    `Reel type: ${reelType}`,
+    "",
+    "Each shot.videoPrompt MUST include the look, camera, and light from the brief.",
+    "Each shot.onScreenText.text MUST be present and follow the text style.",
+    "",
+    "Return valid JSON matching this schema:",
+    JSON.stringify({
+      shots: [{
+        shotId: "string",
+        timeStart: "number",
+        timeEnd: "number",
+        shotType: "wide | medium | close",
+        cameraMovement: "string - use brief.camera",
+        sceneDescription: "string - use brief.concept + brief.look",
+        visualSource: "generated_video | solid_bg",
+        videoPrompt: "string - MUST include brief.look + brief.camera + brief.light",
+        onScreenText: { text: "string - required, 3-8 words" },
+        lightingNotes: "string - use brief.light",
+      }],
+      voiceoverScript: {
+        fullScript: "string",
+        segments: [{ shotId: "string", text: "string", emotion: "string" }],
+      },
+      musicTrack: { mood: "string", tempo: "slow | medium | upbeat", genre: "string" },
+    }, null, 2),
+  ];
+  
+  return lines.join("\n");
+}
+
+function enrichShotWithBrief(
+  shot: ReelBlueprintShot,
+  brief: CompactCreativeBrief
+): ReelBlueprintShot {
+  const enrichedVideoPrompt = shot.videoPrompt 
+    ? `${shot.videoPrompt}. Style: ${brief.look}. Camera: ${brief.camera}. Lighting: ${brief.light}.`
+    : `${brief.concept}. Style: ${brief.look}. Camera: ${brief.camera}. Lighting: ${brief.light}.`;
+  
+  return {
+    ...shot,
+    videoPrompt: enrichedVideoPrompt,
+    lightingNotes: shot.lightingNotes || brief.light,
+    cameraMovement: shot.cameraMovement || (brief.camera.includes("push") ? "slow_push" : "static"),
+    onScreenText: shot.onScreenText?.text 
+      ? shot.onScreenText 
+      : { text: shot.sceneDescription.split(" ").slice(0, 4).join(" ") },
+  };
+}
+
+export async function generateStoryboardFromBrief(
+  input: StoryboardInput
+): Promise<StoryboardResult> {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    throw new Error("OPENAI_API_KEY is not set");
+  }
+
+  const openai = new OpenAI({ apiKey });
+  const prompt = buildStoryboardPrompt(input);
+
+  const completion = await openai.chat.completions.create({
+    model: "gpt-4o-mini",
+    messages: [
+      { role: "system", content: "Return only valid JSON. No markdown, no code blocks, no explanation." },
+      { role: "user", content: prompt },
+    ],
+    response_format: { type: "json_object" },
+    max_tokens: 1500,
+  });
+
+  const raw = completion.choices[0]?.message?.content;
+  if (!raw) {
+    throw new Error("Empty storyboard response from LLM");
+  }
+
+  const parsed = JSON.parse(raw) as {
+    shots: ReelBlueprintShot[];
+    voiceoverScript?: VoiceoverScript;
+    musicTrack?: MusicTrackSelection;
+  };
+
+  if (!Array.isArray(parsed.shots) || parsed.shots.length === 0) {
+    throw new Error("Invalid storyboard: missing shots array");
+  }
+
+  const enrichedShots = parsed.shots.map(shot => enrichShotWithBrief(shot, input.brief));
+
+  return {
+    shots: enrichedShots,
+    voiceoverScript: parsed.voiceoverScript,
+    musicTrack: parsed.musicTrack ?? {
+      mood: input.brief.music.split(" ")[0] || "modern",
+      tempo: "medium",
+      genre: input.brief.music,
+    },
+    tokenUsage: {
+      prompt: completion.usage?.prompt_tokens ?? 0,
+      completion: completion.usage?.completion_tokens ?? 0,
+      total: completion.usage?.total_tokens ?? 0,
+    },
+  };
+}
+
+export function enrichBlueprintWithBrief(
+  blueprint: ReelBlueprint,
+  brief: CompactCreativeBrief
+): ReelBlueprint {
+  return {
+    ...blueprint,
+    shots: blueprint.shots.map(shot => enrichShotWithBrief(shot, brief)),
+    musicTrack: blueprint.musicTrack ?? {
+      mood: brief.music.split(" ")[0] || "modern",
+      tempo: "medium",
+      genre: brief.music,
+    },
+  };
+}
+
 /** Upgrade a prompt for better image or video generation. */
 export async function upgradePrompt(prompt: string): Promise<string> {
   const apiKey = process.env.OPENAI_API_KEY;

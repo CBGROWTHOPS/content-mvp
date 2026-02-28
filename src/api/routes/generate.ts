@@ -3,9 +3,19 @@ import { contentQueue } from "../../lib/queue.js";
 import { supabase } from "../../lib/supabase.js";
 import { selectModel, getModelsForApi } from "../../lib/models.js";
 import { validateJobBody } from "../middleware/validate.js";
-import { generateStructuredContent, getPromptForEstimate, upgradePrompt } from "../../lib/llm.js";
+import { 
+  generateStructuredContent, 
+  getPromptForEstimate, 
+  upgradePrompt,
+  generateStoryboardFromBrief,
+  enrichBlueprintWithBrief,
+  type ReelType,
+} from "../../lib/llm.js";
 import { loadBrand } from "../../lib/brandRegistry.js";
 import { estimateTokenCount } from "../../lib/tokenEstimate.js";
+import { getOrGenerateBrief, computeBriefKey, getCachedBrief } from "../../lib/briefCache.js";
+import { listPresets, getPresetBrief } from "../../lib/briefPresets.js";
+import type { BriefInput } from "../../lib/compactBrief.js";
 
 const router = Router();
 
@@ -145,11 +155,34 @@ router.post("/generate", validateJobBody, async (req: Request, res: Response) =>
       kitDefaults.aspect_ratio = payload.aspect_ratio ?? "16:9";
     }
 
+    // Resolve compact brief from presetId, briefKey, or direct JSON
+    let compactBrief = null;
+    let briefKey = null;
+    
+    if (payload.preset_id) {
+      compactBrief = getPresetBrief(payload.preset_id);
+      briefKey = `preset:${payload.preset_id}`;
+      console.log(`Using brief preset: ${payload.preset_id}`);
+    } else if (payload.brief_key) {
+      const cached = await getCachedBrief(payload.brief_key);
+      if (cached) {
+        compactBrief = cached;
+        briefKey = payload.brief_key;
+        console.log(`Using cached brief: ${payload.brief_key}`);
+      }
+    } else if (payload.compact_brief) {
+      compactBrief = payload.compact_brief;
+      briefKey = `inline:${Date.now()}`;
+      console.log(`Using inline compact brief`);
+    }
+
     const enrichedPayload = {
       ...payload,
       ...kitDefaults,
       model_key: selected.key,
       provider_model_id: selected.provider_model_id,
+      compact_brief: compactBrief,
+      brief_key: briefKey,
     };
     const generationId = (payload as { generation_id?: string }).generation_id ?? null;
 
@@ -181,10 +214,91 @@ router.post("/generate", validateJobBody, async (req: Request, res: Response) =>
       { jobId }
     );
 
-    res.status(202).json({ id: jobId, status: "queued" });
+    res.status(202).json({ id: jobId, status: "queued", briefKey });
   } catch (err) {
     console.error("Generate error:", err);
     res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// Compact Brief endpoints
+
+router.get("/brief-presets", (_req: Request, res: Response) => {
+  res.json({ presets: listPresets() });
+});
+
+router.get("/brief-presets/:presetId", (req: Request, res: Response) => {
+  const { presetId } = req.params;
+  const brief = getPresetBrief(presetId);
+  res.json({ brief, presetId });
+});
+
+router.post("/compact-brief", async (req: Request, res: Response) => {
+  try {
+    const { brandId, goal, topic, audience, style, constraints, usePreset, skipCache } = req.body;
+    
+    if (usePreset) {
+      const brief = getPresetBrief(usePreset);
+      res.json({ 
+        brief, 
+        briefKey: `preset:${usePreset}`,
+        cached: false,
+        tokenUsage: { prompt: 0, completion: 0, total: 0 },
+      });
+      return;
+    }
+    
+    if (!brandId || !goal || !topic || !audience || !style) {
+      res.status(400).json({ error: "brandId, goal, topic, audience, and style are required" });
+      return;
+    }
+    
+    const input: BriefInput = { brandId, goal, topic, audience, style, constraints };
+    const briefKey = computeBriefKey(input);
+    
+    const result = await getOrGenerateBrief(input, { skipCache: Boolean(skipCache) });
+    
+    res.json({
+      brief: result.brief,
+      briefKey,
+      cached: result.cached,
+      tokenUsage: result.tokenUsage,
+    });
+  } catch (err) {
+    console.error("Compact brief error:", err);
+    const msg = err instanceof Error ? err.message : "Internal server error";
+    res.status(500).json({ error: msg });
+  }
+});
+
+router.post("/storyboard-from-brief", async (req: Request, res: Response) => {
+  try {
+    const { brief, durationSeconds, shotCount, reelType } = req.body;
+    
+    if (!brief || !durationSeconds || !shotCount || !reelType) {
+      res.status(400).json({ 
+        error: "brief, durationSeconds, shotCount, and reelType are required" 
+      });
+      return;
+    }
+    
+    const result = await generateStoryboardFromBrief({
+      brief,
+      durationSeconds: Number(durationSeconds),
+      shotCount: Number(shotCount),
+      reelType: reelType as ReelType,
+    });
+    
+    res.json({
+      shots: result.shots,
+      voiceoverScript: result.voiceoverScript,
+      musicTrack: result.musicTrack,
+      tokenUsage: result.tokenUsage,
+    });
+  } catch (err) {
+    console.error("Storyboard generation error:", err);
+    const msg = err instanceof Error ? err.message : "Internal server error";
+    res.status(500).json({ error: msg });
   }
 });
 
