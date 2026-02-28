@@ -34,6 +34,8 @@ export async function runReplicate(
   let url: string;
   if (typeof output === "string") {
     url = output;
+  } else if (Array.isArray(output) && output.length > 0 && typeof output[0] === "string") {
+    url = output[0];
   } else if (output && typeof output === "object" && "output" in (output as object)) {
     const out = (output as { output: string | string[] }).output;
     url = Array.isArray(out) ? out[0] ?? "" : out;
