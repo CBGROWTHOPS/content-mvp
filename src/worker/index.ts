@@ -1,12 +1,26 @@
 import { createWorker } from "../lib/queue.js";
 import { processContentJob } from "./processors/content.js";
+import { exec } from "child_process";
+import { promisify } from "util";
 
-console.log("Creating worker...");
-console.log("Redis config:", {
-  host: process.env.REDIS_HOST ?? process.env.REDISHOST ?? "not set",
-  port: process.env.REDIS_PORT ?? process.env.REDISPORT ?? "6379",
-  hasPassword: !!(process.env.REDIS_PASSWORD ?? process.env.REDISPASSWORD),
-});
+const execAsync = promisify(exec);
+
+async function checkFfprobe(): Promise<void> {
+  try {
+    const { stdout } = await execAsync("ffprobe -version", { timeout: 5000 });
+    const version = stdout.split("\n")[0] ?? "unknown";
+    console.log(`ffprobe: ${version}`);
+  } catch {
+    console.error("FATAL: ffprobe not found. Worker cannot validate video assets.");
+    console.error("Install ffmpeg or add it to the container.");
+    process.exit(1);
+  }
+}
+
+console.log("Starting worker...");
+await checkFfprobe();
+
+console.log("Redis:", process.env.REDIS_HOST ?? process.env.REDISHOST ?? "localhost");
 
 const worker = createWorker(processContentJob);
 

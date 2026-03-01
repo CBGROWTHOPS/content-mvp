@@ -39,7 +39,6 @@ async function updateProgress(jobId: string, step: ProgressStep): Promise<void> 
     .from("jobs")
     .update({ progress_step: step, updated_at: new Date().toISOString() })
     .eq("id", jobId);
-  console.log(`Job ${jobId}: progress → ${step}`);
 }
 
 type ReelType = "text_overlay" | "voiceover" | "broll" | "talking_head";
@@ -136,11 +135,11 @@ async function generateReelAssets(
   });
   
   if (!gateA.pass) {
-    const failureDetails = gateA.failures.map(f => f.reason).join("; ");
-    console.error(`GATE A FAILED: ${failureDetails}`);
-    throw new Error(`Shot contract validation failed: ${failureDetails}`);
+    const failureDetails = gateA.failures.map(f => `${f.shotId}:${f.field}`).join(",");
+    console.log(`GATE_A fail shots=${failureDetails}`);
+    throw new Error(`Shot contract validation failed: ${gateA.failures.map(f => f.reason).join("; ")}`);
   }
-  console.log(`GATE A PASSED: All ${blueprint.shots.length} shots have valid contracts`);
+  console.log(`GATE_A pass shots=${blueprint.shots.length}`);
   
   const blueprintValidation = validateBlueprint(
     blueprint.shots as ShotForValidation[],
@@ -148,10 +147,7 @@ async function generateReelAssets(
   );
   
   if (!blueprintValidation.pass) {
-    const failureMessages = blueprintValidation.failures
-      .map(f => f.reason)
-      .join("; ");
-    console.warn(`Blueprint validation warnings: ${failureMessages}`);
+    console.log(`blueprint_warn: ${blueprintValidation.failures.length} issues`);
   }
   const assets: ReelAssetsInput = {};
   let totalCost = 0;
@@ -170,7 +166,6 @@ async function generateReelAssets(
         .filter(Boolean);
       if (textParts.length > 0) {
         voiceoverText = textParts.join(". ");
-        console.log(`No voiceover script provided, using on-screen text: "${voiceoverText.slice(0, 50)}..."`);
       }
     }
     
@@ -194,9 +189,8 @@ async function generateReelAssets(
         const { data: voUrlData } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(voStoragePath);
         assets.voiceoverUrl = voUrlData.publicUrl;
         totalCost += result.cost;
-        console.log(`Voiceover generated: ${result.characterCount} chars, $${result.cost.toFixed(4)}`);
       } catch (err) {
-        console.warn(`Voiceover generation failed: ${err instanceof Error ? err.message : err}`);
+        console.log(`voiceover_error: ${(err instanceof Error ? err.message : String(err)).slice(0, 60)}`);
       }
     }
   }
@@ -228,7 +222,6 @@ async function generateReelAssets(
       });
       const { data: musicUrlData } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(musicStoragePath);
       assets.musicUrl = musicUrlData.publicUrl;
-      console.log(`Library music uploaded (cost: $0)`);
     } else if (musicResult.source === "generated" && musicResult.audioUrl) {
       // Download AI-generated music and upload to Supabase
       const response = await fetch(musicResult.audioUrl);
@@ -244,119 +237,85 @@ async function generateReelAssets(
       const { data: musicUrlData } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(musicStoragePath);
       assets.musicUrl = musicUrlData.publicUrl;
       totalCost += musicResult.cost;
-      console.log(`AI music generated via MusicGen (cost: $${musicResult.cost.toFixed(3)})`);
     }
   } catch (err) {
-    console.warn(`Music selection/generation failed: ${err instanceof Error ? err.message : err}`);
+    console.log(`music_error: ${(err instanceof Error ? err.message : String(err)).slice(0, 60)}`);
   }
 
-  // Generate video for ANY shots with visualSource=generated_video (not just broll)
+  // Generate video for ANY shots with visualSource=generated_video
   const shotsNeedingVideo = blueprint.shots.filter(shot => shot.visualSource === "generated_video" && shot.videoPrompt);
   
   if (shotsNeedingVideo.length > 0) {
-    console.log(`Video generation: ${shotsNeedingVideo.length} shots need video (reelType=${reelType})`);
     await updateProgress(jobId, "generating_video");
     const videosByShot: Record<string, string> = {};
     
     for (const shot of shotsNeedingVideo) {
-      console.log(`Generating video for shot ${shot.shotId}...`);
-        
-        const maxRetries = 2;
-        let lastError: string | undefined;
-        
-        for (let attempt = 0; attempt < maxRetries; attempt++) {
-          try {
-            const shotDuration = shot.timeEnd - shot.timeStart;
-            const strictMode = attempt > 0;
-            const prompt = strictMode 
-              ? `${shot.videoPrompt!}. MUST be real video footage, cinematic, no abstract or blank backgrounds.`
-              : shot.videoPrompt!;
-            
-            const { url, cost } = await runReplicate(
-              "minimax/video-01",
-              prompt,
-              { lengthSeconds: Math.ceil(shotDuration), aspectRatio: "9:16" }
-            );
-            
-            const videoResp = await fetch(url);
-            if (!videoResp.ok) {
-              throw new Error(`Failed to fetch video: ${videoResp.status}`);
+      const maxRetries = 2;
+      let lastError: string | undefined;
+      
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+          const shotDuration = shot.timeEnd - shot.timeStart;
+          const prompt = attempt > 1
+            ? `${shot.videoPrompt!}. MUST be real video footage, cinematic, no abstract or blank backgrounds.`
+            : shot.videoPrompt!;
+          
+          const { url, cost } = await runReplicate(
+            "minimax/video-01",
+            prompt,
+            { lengthSeconds: Math.ceil(shotDuration), aspectRatio: "9:16" }
+          );
+          
+          const videoResp = await fetch(url);
+          if (!videoResp.ok) throw new Error(`fetch_failed:${videoResp.status}`);
+          
+          const contentType = videoResp.headers.get("content-type");
+          const validation = validateShotAsset(shot as ShotForValidation, url, contentType, rules);
+          
+          if (!validation.pass && validation.canRetry && attempt < maxRetries) {
+            lastError = validation.reason;
+            continue;
+          }
+          
+          const videoBuffer = Buffer.from(await videoResp.arrayBuffer());
+          const localVideoPath = path.join(tmpDir, `shot-${shot.shotId}.mp4`);
+          await fs.writeFile(localVideoPath, videoBuffer);
+          
+          const fileSizeMB = (videoBuffer.length / 1024 / 1024).toFixed(1);
+          const expectedDuration = shot.timeEnd - shot.timeStart;
+          const gateBResult = await validateGeneratedVideoAsset(shot.shotId, localVideoPath, expectedDuration);
+          
+          if (!gateBResult.overallPass) {
+            const reason = gateBResult.gateB.reason ?? "unknown";
+            console.log(`GATE_B fail ${shot.shotId} attempt=${attempt} size=${fileSizeMB}MB reason=${reason}`);
+            if (attempt < maxRetries) {
+              lastError = reason;
+              continue;
             }
-            
-            const contentType = videoResp.headers.get("content-type");
-            const validation = validateShotAsset(
-              shot as ShotForValidation,
-              url,
-              contentType,
-              rules
-            );
-            
-            if (!validation.pass) {
-              if (validation.canRetry && attempt < maxRetries - 1) {
-                console.warn(`Shot ${shot.shotId} failed validation (${validation.reason}), retrying with strict mode...`);
-                lastError = validation.reason;
-                continue;
-              }
-              console.warn(`Shot ${shot.shotId} failed validation: ${validation.reason}`);
-            }
-            
-            const videoBuffer = Buffer.from(await videoResp.arrayBuffer());
-            
-            // =========================================================
-            // GATE B: Pre-Upload Local File Validation (ffprobe)
-            // Save to temp file, validate locally, then upload if valid
-            // =========================================================
-            const localVideoPath = path.join(tmpDir, `shot-${shot.shotId}.mp4`);
-            await fs.writeFile(localVideoPath, videoBuffer);
-            
-            const fileSizeKB = Math.round(videoBuffer.length / 1024);
-            console.log(`Shot ${shot.shotId}: downloaded ${fileSizeKB}KB, saved to ${localVideoPath}`);
-            
-            const expectedDuration = shot.timeEnd - shot.timeStart;
-            const gateBResult = await validateGeneratedVideoAsset(
-              shot.shotId,
-              localVideoPath,
-              expectedDuration
-            );
-            
-            if (!gateBResult.overallPass) {
-              console.warn(`GATE B FAILED for shot ${shot.shotId}: ${gateBResult.gateB.reason}`);
-              if (attempt < maxRetries - 1) {
-                lastError = `GATE B: ${gateBResult.gateB.reason}`;
-                continue;
-              }
-              console.error(`GATE B: Shot ${shot.shotId} invalid after retries, skipping upload`);
-              break;
-            }
-            
-            console.log(`GATE B PASSED for shot ${shot.shotId}: ${gateBResult.gateB.probe.duration}s video, ${gateBResult.gateB.probe.codec}`);
-            
-            // Only upload if validation passed
-            const videoStoragePath = getStoragePath(brandKey, "video", jobId, `shot-${shot.shotId}.mp4`);
-            await supabase.storage.from(STORAGE_BUCKET).upload(videoStoragePath, videoBuffer, {
-              contentType: "video/mp4",
-              upsert: true,
-            });
-            const { data: videoUrlData } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(videoStoragePath);
-            
-            videosByShot[shot.shotId] = videoUrlData.publicUrl;
-            totalCost += cost ?? 0;
-            console.log(`Shot ${shot.shotId} video generated (attempt ${attempt + 1}), cost: $${(cost ?? 0).toFixed(4)}`);
             break;
-          } catch (err) {
-            lastError = err instanceof Error ? err.message : String(err);
-            if (attempt < maxRetries - 1) {
-              console.warn(`Shot ${shot.shotId} generation attempt ${attempt + 1} failed: ${lastError}, retrying...`);
-            }
+          }
+          
+          const { duration, codec } = gateBResult.gateB.probe;
+          console.log(`GATE_B pass ${shot.shotId} attempt=${attempt} dur=${duration.toFixed(2)}s codec=${codec} size=${fileSizeMB}MB`);
+          
+          const videoStoragePath = getStoragePath(brandKey, "video", jobId, `shot-${shot.shotId}.mp4`);
+          await supabase.storage.from(STORAGE_BUCKET).upload(videoStoragePath, videoBuffer, {
+            contentType: "video/mp4",
+            upsert: true,
+          });
+          const { data: videoUrlData } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(videoStoragePath);
+          
+          videosByShot[shot.shotId] = videoUrlData.publicUrl;
+          totalCost += cost ?? 0;
+          break;
+        } catch (err) {
+          lastError = err instanceof Error ? err.message : String(err);
+          if (attempt >= maxRetries) {
+            console.log(`GATE_B fail ${shot.shotId} attempt=${attempt} reason=${lastError.slice(0, 80)}`);
           }
         }
-        
-        if (!videosByShot[shot.shotId] && lastError) {
-          console.warn(`Video generation failed for shot ${shot.shotId} after ${maxRetries} attempts: ${lastError}`);
-        }
+      }
     }
-    
-    console.log(`Video generation complete: ${Object.keys(videosByShot).length} videos generated`);
     
     if (Object.keys(videosByShot).length > 0) {
       assets.videosByShot = videosByShot;
@@ -377,6 +336,8 @@ export async function processContentJob(job: Job<QueueJobPayload, void, string>)
       .from("jobs")
       .update({ status: "processing", progress_step: "processing", updated_at: new Date().toISOString() })
       .eq("id", jobId);
+    
+    console.log(`JOB processing id=${jobId.slice(0, 8)} format=${payload.format} brand=${payload.brand_key}`);
 
     let enrichedPayload = payload;
     const genId = (payload as { generation_id?: string }).generation_id;
@@ -424,9 +385,6 @@ export async function processContentJob(job: Job<QueueJobPayload, void, string>)
         ?? gen!.compact_brief 
         ?? undefined;
       const briefKey = (payload as { brief_key?: string }).brief_key;
-      if (briefKey) {
-        console.log(`Using compact brief from key: ${briefKey}`);
-      }
       const tmpPath = path.join(os.tmpdir(), `remotion-${jobId}.mp4`);
       try {
         // Generate audio/video assets based on reel type with validation
@@ -448,11 +406,9 @@ export async function processContentJob(job: Job<QueueJobPayload, void, string>)
         buffer = await fs.readFile(tmpPath);
         await fs.unlink(tmpPath).catch(() => {});
         usedRemotion = true;
-        
-        console.log(`Job ${jobId}: Remotion render complete, reelType=${blueprint.reelType ?? "voiceover"}`);
       } catch (remotionErr) {
         const errMsg = remotionErr instanceof Error ? remotionErr.message : String(remotionErr);
-        console.warn(`Remotion render failed, falling back to Replicate: ${errMsg}`);
+        console.log(`render_fallback: ${errMsg.slice(0, 60)}`);
       }
     }
     
@@ -522,13 +478,14 @@ export async function processContentJob(job: Job<QueueJobPayload, void, string>)
       .eq("id", jobId);
 
     if (statusError) {
-      console.error(`Job ${jobId}: Failed to update status to completed:`, statusError.message);
+      console.log(`JOB error id=${jobId.slice(0, 8)} status_update_failed`);
     } else {
-      console.log(`Job ${jobId}: Status updated to completed`);
+      const sizeMB = buffer ? (buffer.length / 1024 / 1024).toFixed(1) : "0";
+      console.log(`JOB complete id=${jobId.slice(0, 8)} size=${sizeMB}MB dur=${durationSeconds ?? 0}s cost=$${(cost ?? 0).toFixed(3)}`);
     }
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    console.error(`Job ${jobId} failed:`, message);
+    console.log(`JOB failed id=${jobId.slice(0, 8)} error=${message.slice(0, 80)}`);
 
     await supabase
       .from("jobs")

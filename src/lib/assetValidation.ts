@@ -298,11 +298,6 @@ export async function probeVideoFile(filePath: string): Promise<VideoProbeResult
   try {
     const cmd = `ffprobe -v error -print_format json -show_format -show_streams "${filePath}"`;
     const { stdout, stderr } = await execAsync(cmd, { timeout: 30000 });
-    
-    if (stderr) {
-      console.log(`ffprobe stderr for ${filePath}: ${stderr}`);
-    }
-    
     const data = JSON.parse(stdout);
 
     const videoStream = data.streams?.find(
@@ -317,7 +312,7 @@ export async function probeVideoFile(filePath: string): Promise<VideoProbeResult
         width: 0,
         height: 0,
         codec: "",
-        error: "No video stream found",
+        error: stderr ? `no_video_stream stderr=${stderr.slice(0, 100)}` : "no_video_stream",
       };
     }
 
@@ -333,8 +328,9 @@ export async function probeVideoFile(filePath: string): Promise<VideoProbeResult
       codec: videoStream.codec_name ?? "",
     };
   } catch (err) {
-    const errorMsg = err instanceof Error ? err.message : String(err);
-    console.error(`ffprobe error for ${filePath}: ${errorMsg}`);
+    const stderr = (err as { stderr?: string }).stderr ?? "";
+    const msg = err instanceof Error ? err.message : String(err);
+    const truncatedStderr = stderr.slice(0, 100).replace(/\n/g, " ");
     return {
       hasVideoStream: false,
       hasFrames: false,
@@ -342,7 +338,7 @@ export async function probeVideoFile(filePath: string): Promise<VideoProbeResult
       width: 0,
       height: 0,
       codec: "",
-      error: errorMsg,
+      error: `ffprobe_error: ${msg.slice(0, 50)} stderr=${truncatedStderr}`,
     };
   }
 }
