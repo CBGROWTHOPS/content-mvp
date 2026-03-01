@@ -32,6 +32,15 @@ const app = express();
 app.use(cors(corsOptions)); // Explicit allowlist for Vercel UI + localhost
 app.use(express.json());
 
+// #region agent log
+app.use((req, _res, next) => {
+  if (req.method === 'POST') {
+    console.log(`REQ ${req.method} ${req.path} origin=${req.headers.origin || 'none'}`);
+  }
+  next();
+});
+// #endregion
+
 app.get("/health", (_req, res) => {
   res.json({ status: "ok" });
 });

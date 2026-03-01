@@ -15,9 +15,11 @@ const hookTypeEnum = z.enum([
   "contrast",
   "question",
   "pain_point",
+  "problem",
   "statistic",
   "story",
   "concept",
+  "reveal",
   "motorized_demo",
 ]);
 

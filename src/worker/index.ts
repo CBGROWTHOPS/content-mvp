@@ -18,6 +18,9 @@ async function checkFfprobe(): Promise<void> {
 }
 
 console.log("Starting worker...");
+// #region agent log
+fetch('http://127.0.0.1:7622/ingest/6914438b-b125-4fa3-85ef-baac9ba1b5cf',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'bc96f7'},body:JSON.stringify({sessionId:'bc96f7',location:'worker/index.ts:21',message:'worker_startup',data:{env:{REDIS_HOST:process.env.REDIS_HOST,REDISHOST:process.env.REDISHOST}},hypothesisId:'H1',timestamp:Date.now()})}).catch(()=>{});
+// #endregion
 await checkFfprobe();
 
 console.log("Redis:", process.env.REDIS_HOST ?? process.env.REDISHOST ?? "localhost");
