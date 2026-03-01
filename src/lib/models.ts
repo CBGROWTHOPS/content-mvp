@@ -7,6 +7,7 @@ export type JobFormat =
   | "reel_kit"
   | "wide_video_kit";
 export type Quality = "draft" | "final";
+export type VideoGenerationMode = "image_first" | "direct_text_to_video";
 
 export interface ModelConfig {
   provider_model_id: string;
@@ -15,24 +16,36 @@ export interface ModelConfig {
   cost_tier: string;
   short_description: string;
   replicate_page_url: string;
+  videoMode?: VideoGenerationMode;
 }
 
 export const MODEL_CONFIG: Record<string, ModelConfig> = {
+  "image-first-pipeline": {
+    provider_model_id: "flux-dev+stable-video-diffusion",
+    formats_supported: ["reel", "story", "post", "reel_kit", "wide_video_kit"],
+    default_for_format: { reel: true, reel_kit: true, wide_video_kit: true },
+    cost_tier: "~$0.13/video (image + animation)",
+    short_description: "Image-first: generate still with Flux, animate with SVD. More controllable.",
+    replicate_page_url: "https://replicate.com/stability-ai/stable-video-diffusion",
+    videoMode: "image_first",
+  },
   "minimax-video-01": {
     provider_model_id: "minimax/video-01",
     formats_supported: ["reel", "story", "post", "reel_kit", "wide_video_kit"],
-    default_for_format: { reel: true, reel_kit: true, wide_video_kit: true },
+    default_for_format: {},
     cost_tier: "~$0.20/video",
-    short_description: "High-quality text-to-video, 720p, up to 6s",
+    short_description: "Direct text-to-video, 720p, up to 6s. Less controllable.",
     replicate_page_url: "https://replicate.com/minimax/video-01",
+    videoMode: "direct_text_to_video",
   },
   "stable-video-diffusion": {
     provider_model_id: "stability-ai/stable-video-diffusion",
     formats_supported: ["reel", "story", "post", "reel_kit", "wide_video_kit"],
     default_for_format: {},
     cost_tier: "~$0.10/video",
-    short_description: "Image-to-video animation from stills",
+    short_description: "Image-to-video animation from stills (requires image input)",
     replicate_page_url: "https://replicate.com/stability-ai/stable-video-diffusion",
+    videoMode: "image_first",
   },
   "flux-schnell": {
     provider_model_id: "black-forest-labs/flux-schnell",
@@ -63,6 +76,7 @@ export const MODEL_CONFIG: Record<string, ModelConfig> = {
 export interface SelectedModel {
   key: string;
   provider_model_id: string;
+  videoMode?: VideoGenerationMode;
 }
 
 /**
@@ -77,20 +91,32 @@ export function selectModel(
   if (modelKeyOverride) {
     const config = MODEL_CONFIG[modelKeyOverride];
     if (config?.formats_supported.includes(format)) {
-      return { key: modelKeyOverride, provider_model_id: config.provider_model_id };
+      return { 
+        key: modelKeyOverride, 
+        provider_model_id: config.provider_model_id,
+        videoMode: config.videoMode,
+      };
     }
   }
 
   for (const [key, config] of Object.entries(MODEL_CONFIG)) {
     if (config.formats_supported.includes(format) && config.default_for_format[format]) {
-      return { key, provider_model_id: config.provider_model_id };
+      return { 
+        key, 
+        provider_model_id: config.provider_model_id,
+        videoMode: config.videoMode,
+      };
     }
   }
 
   // Fallback: first model that supports format
   for (const [key, config] of Object.entries(MODEL_CONFIG)) {
     if (config.formats_supported.includes(format)) {
-      return { key, provider_model_id: config.provider_model_id };
+      return { 
+        key, 
+        provider_model_id: config.provider_model_id,
+        videoMode: config.videoMode,
+      };
     }
   }
 
@@ -105,6 +131,7 @@ export function getModelsForApi(): Array<{
   cost_tier: string;
   short_description: string;
   replicate_page_url: string;
+  video_mode?: VideoGenerationMode;
 }> {
   return Object.entries(MODEL_CONFIG).map(([key, config]) => ({
     key,
@@ -114,5 +141,6 @@ export function getModelsForApi(): Array<{
     cost_tier: config.cost_tier,
     short_description: config.short_description,
     replicate_page_url: config.replicate_page_url,
+    video_mode: config.videoMode,
   }));
 }

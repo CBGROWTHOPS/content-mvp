@@ -3,7 +3,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { buildPrompt } from "../../core/prompts.js";
-import { runReplicate } from "../../lib/replicate.js";
+import { runReplicate, generateImage, imageToVideo, generateVideoFromPrompt } from "../../lib/replicate.js";
 import { renderReelFromBlueprint, type ReelAssetsInput } from "../../remotion/render.js";
 import { supabase, STORAGE_BUCKET, getStoragePath } from "../../lib/supabase.js";
 import { generateVoiceoverToFile, VOICE_PRESETS } from "../../lib/elevenlabs.js";
@@ -29,11 +29,14 @@ type ProgressStep =
   | "validating_contract"
   | "generating_voiceover" 
   | "generating_music" 
+  | "generating_images"
   | "generating_video" 
   | "validating_assets"
   | "rendering" 
   | "uploading" 
   | "completed";
+
+type VideoGenerationMode = "image_first" | "direct_text_to_video";
 
 async function updateProgress(jobId: string, step: ProgressStep): Promise<void> {
   await supabase
@@ -257,74 +260,192 @@ async function generateReelAssets(
 
   // Generate video for ANY shots with visualSource=generated_video
   const shotsNeedingVideo = blueprint.shots.filter(shot => shot.visualSource === "generated_video" && shot.videoPrompt);
+  const videoMode: VideoGenerationMode = "image_first";
   
   if (shotsNeedingVideo.length > 0) {
-    await updateProgress(jobId, "generating_video");
     const videosByShot: Record<string, string> = {};
+    const imagesByShot: Record<string, string> = {};
     
-    for (const shot of shotsNeedingVideo) {
-      const maxRetries = 2;
-      let lastError: string | undefined;
+    if (videoMode === "image_first") {
+      // Phase 1: Generate all images first
+      await updateProgress(jobId, "generating_images");
+      console.log(`IMAGE_GEN start shots=${shotsNeedingVideo.length}`);
       
-      for (let attempt = 1; attempt <= maxRetries; attempt++) {
-        try {
-          const shotDuration = shot.timeEnd - shot.timeStart;
-          const prompt = attempt > 1
-            ? `${shot.videoPrompt!}. MUST be real video footage, cinematic, no abstract or blank backgrounds.`
-            : shot.videoPrompt!;
-          
-          const { url, cost } = await runReplicate(
-            "minimax/video-01",
-            prompt,
-            { lengthSeconds: Math.ceil(shotDuration), aspectRatio: "9:16" }
-          );
-          
-          const videoResp = await fetch(url);
-          if (!videoResp.ok) throw new Error(`fetch_failed:${videoResp.status}`);
-          
-          const contentType = videoResp.headers.get("content-type");
-          const validation = validateShotAsset(shot as ShotForValidation, url, contentType, rules);
-          
-          if (!validation.pass && validation.canRetry && attempt < maxRetries) {
-            lastError = validation.reason;
-            continue;
+      for (const shot of shotsNeedingVideo) {
+        const maxRetries = 2;
+        let lastError: string | undefined;
+        
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+          try {
+            const imagePrompt = attempt > 1
+              ? `${shot.videoPrompt!}. Photorealistic, high quality, professional photography, sharp focus.`
+              : shot.videoPrompt!;
+            
+            const imageResult = await generateImage(imagePrompt, {
+              aspectRatio: "9:16",
+              negativePrompt: "blurry, low quality, abstract, void, blank, amateur, watermark, text, logo",
+            });
+            
+            const imageResp = await fetch(imageResult.url);
+            if (!imageResp.ok) throw new Error(`image_fetch_failed:${imageResp.status}`);
+            
+            const imageBuffer = Buffer.from(await imageResp.arrayBuffer());
+            const localImagePath = path.join(tmpDir, `shot-${shot.shotId}.png`);
+            await fs.writeFile(localImagePath, imageBuffer);
+            
+            const imageSizeKB = (imageBuffer.length / 1024).toFixed(0);
+            console.log(`IMAGE_GEN pass ${shot.shotId} attempt=${attempt} size=${imageSizeKB}KB`);
+            
+            const imageStoragePath = getStoragePath(brandKey, "image", jobId, `shot-${shot.shotId}.png`);
+            await supabase.storage.from(STORAGE_BUCKET).upload(imageStoragePath, imageBuffer, {
+              contentType: "image/png",
+              upsert: true,
+            });
+            const { data: imageUrlData } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(imageStoragePath);
+            
+            imagesByShot[shot.shotId] = imageUrlData.publicUrl;
+            totalCost += imageResult.cost ?? 0;
+            break;
+          } catch (err) {
+            lastError = err instanceof Error ? err.message : String(err);
+            if (attempt >= maxRetries) {
+              console.log(`IMAGE_GEN fail ${shot.shotId} attempt=${attempt} reason=${lastError.slice(0, 200)}`);
+            }
           }
-          
-          const videoBuffer = Buffer.from(await videoResp.arrayBuffer());
-          const localVideoPath = path.join(tmpDir, `shot-${shot.shotId}.mp4`);
-          await fs.writeFile(localVideoPath, videoBuffer);
-          
-          const fileSizeMB = (videoBuffer.length / 1024 / 1024).toFixed(1);
-          const expectedDuration = shot.timeEnd - shot.timeStart;
-          const gateBResult = await validateGeneratedVideoAsset(shot.shotId, localVideoPath, expectedDuration);
-          
-          if (!gateBResult.overallPass) {
-            const reason = gateBResult.gateB.reason ?? "unknown";
-            console.log(`GATE_B fail ${shot.shotId} attempt=${attempt} size=${fileSizeMB}MB reason=${reason}`);
-            if (attempt < maxRetries) {
-              lastError = reason;
+        }
+      }
+      
+      // Phase 2: Animate images to video
+      await updateProgress(jobId, "generating_video");
+      console.log(`VIDEO_GEN start images=${Object.keys(imagesByShot).length}`);
+      
+      for (const shot of shotsNeedingVideo) {
+        const imageUrl = imagesByShot[shot.shotId];
+        if (!imageUrl) {
+          console.log(`VIDEO_GEN skip ${shot.shotId} reason=no_image`);
+          continue;
+        }
+        
+        const maxRetries = 2;
+        let lastError: string | undefined;
+        
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+          try {
+            const videoResult = await imageToVideo(imageUrl, {
+              motionBucketId: 127,
+              fps: 6,
+            });
+            
+            const videoResp = await fetch(videoResult.url);
+            if (!videoResp.ok) throw new Error(`video_fetch_failed:${videoResp.status}`);
+            
+            const videoBuffer = Buffer.from(await videoResp.arrayBuffer());
+            const localVideoPath = path.join(tmpDir, `shot-${shot.shotId}.mp4`);
+            await fs.writeFile(localVideoPath, videoBuffer);
+            
+            const fileSizeMB = (videoBuffer.length / 1024 / 1024).toFixed(1);
+            const expectedDuration = shot.timeEnd - shot.timeStart;
+            const gateBResult = await validateGeneratedVideoAsset(shot.shotId, localVideoPath, expectedDuration);
+            
+            if (!gateBResult.overallPass) {
+              const reason = gateBResult.gateB.reason ?? "unknown";
+              console.log(`GATE_B fail ${shot.shotId} attempt=${attempt} size=${fileSizeMB}MB reason=${reason}`);
+              if (attempt < maxRetries) {
+                lastError = reason;
+                continue;
+              }
+              break;
+            }
+            
+            const { duration, codec } = gateBResult.gateB.probe;
+            console.log(`GATE_B pass ${shot.shotId} attempt=${attempt} dur=${duration.toFixed(2)}s codec=${codec} size=${fileSizeMB}MB`);
+            
+            const videoStoragePath = getStoragePath(brandKey, "video", jobId, `shot-${shot.shotId}.mp4`);
+            await supabase.storage.from(STORAGE_BUCKET).upload(videoStoragePath, videoBuffer, {
+              contentType: "video/mp4",
+              upsert: true,
+            });
+            const { data: videoUrlData } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(videoStoragePath);
+            
+            videosByShot[shot.shotId] = videoUrlData.publicUrl;
+            totalCost += videoResult.cost ?? 0;
+            break;
+          } catch (err) {
+            lastError = err instanceof Error ? err.message : String(err);
+            if (attempt >= maxRetries) {
+              console.log(`GATE_B fail ${shot.shotId} attempt=${attempt} reason=${lastError.slice(0, 200)}`);
+            }
+          }
+        }
+      }
+    } else {
+      // Legacy: direct text-to-video with minimax
+      await updateProgress(jobId, "generating_video");
+      
+      for (const shot of shotsNeedingVideo) {
+        const maxRetries = 2;
+        let lastError: string | undefined;
+        
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+          try {
+            const shotDuration = shot.timeEnd - shot.timeStart;
+            const prompt = attempt > 1
+              ? `${shot.videoPrompt!}. MUST be real video footage, cinematic, no abstract or blank backgrounds.`
+              : shot.videoPrompt!;
+            
+            const { url, cost } = await runReplicate(
+              "minimax/video-01",
+              prompt,
+              { lengthSeconds: Math.ceil(shotDuration), aspectRatio: "9:16" }
+            );
+            
+            const videoResp = await fetch(url);
+            if (!videoResp.ok) throw new Error(`fetch_failed:${videoResp.status}`);
+            
+            const contentType = videoResp.headers.get("content-type");
+            const validation = validateShotAsset(shot as ShotForValidation, url, contentType, rules);
+            
+            if (!validation.pass && validation.canRetry && attempt < maxRetries) {
+              lastError = validation.reason;
               continue;
             }
+            
+            const videoBuffer = Buffer.from(await videoResp.arrayBuffer());
+            const localVideoPath = path.join(tmpDir, `shot-${shot.shotId}.mp4`);
+            await fs.writeFile(localVideoPath, videoBuffer);
+            
+            const fileSizeMB = (videoBuffer.length / 1024 / 1024).toFixed(1);
+            const expectedDuration = shot.timeEnd - shot.timeStart;
+            const gateBResult = await validateGeneratedVideoAsset(shot.shotId, localVideoPath, expectedDuration);
+            
+            if (!gateBResult.overallPass) {
+              const reason = gateBResult.gateB.reason ?? "unknown";
+              console.log(`GATE_B fail ${shot.shotId} attempt=${attempt} size=${fileSizeMB}MB reason=${reason}`);
+              if (attempt < maxRetries) {
+                lastError = reason;
+                continue;
+              }
+              break;
+            }
+            
+            const { duration, codec } = gateBResult.gateB.probe;
+            console.log(`GATE_B pass ${shot.shotId} attempt=${attempt} dur=${duration.toFixed(2)}s codec=${codec} size=${fileSizeMB}MB`);
+            
+            const videoStoragePath = getStoragePath(brandKey, "video", jobId, `shot-${shot.shotId}.mp4`);
+            await supabase.storage.from(STORAGE_BUCKET).upload(videoStoragePath, videoBuffer, {
+              contentType: "video/mp4",
+              upsert: true,
+            });
+            const { data: videoUrlData } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(videoStoragePath);
+            
+            videosByShot[shot.shotId] = videoUrlData.publicUrl;
+            totalCost += cost ?? 0;
             break;
-          }
-          
-          const { duration, codec } = gateBResult.gateB.probe;
-          console.log(`GATE_B pass ${shot.shotId} attempt=${attempt} dur=${duration.toFixed(2)}s codec=${codec} size=${fileSizeMB}MB`);
-          
-          const videoStoragePath = getStoragePath(brandKey, "video", jobId, `shot-${shot.shotId}.mp4`);
-          await supabase.storage.from(STORAGE_BUCKET).upload(videoStoragePath, videoBuffer, {
-            contentType: "video/mp4",
-            upsert: true,
-          });
-          const { data: videoUrlData } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(videoStoragePath);
-          
-          videosByShot[shot.shotId] = videoUrlData.publicUrl;
-          totalCost += cost ?? 0;
-          break;
-        } catch (err) {
-          lastError = err instanceof Error ? err.message : String(err);
-          if (attempt >= maxRetries) {
-            console.log(`GATE_B fail ${shot.shotId} attempt=${attempt} reason=${lastError.slice(0, 200)}`);
+          } catch (err) {
+            lastError = err instanceof Error ? err.message : String(err);
+            if (attempt >= maxRetries) {
+              console.log(`GATE_B fail ${shot.shotId} attempt=${attempt} reason=${lastError.slice(0, 200)}`);
+            }
           }
         }
       }
