@@ -1,6 +1,6 @@
 FROM node:20-slim
 
-# Install Chrome dependencies for Remotion
+# Install Chrome dependencies for Remotion + ffmpeg for video validation
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libnss3 \
     libnspr4 \
@@ -22,6 +22,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     xdg-utils \
     wget \
     ca-certificates \
+    ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
