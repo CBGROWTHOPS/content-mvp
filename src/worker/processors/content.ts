@@ -265,9 +265,6 @@ async function generateReelAssets(
     for (const shot of shotsNeedingVideo) {
       const maxRetries = 2;
       let lastError: string | undefined;
-      // #region agent log
-      console.log(`[DEBUG] shot_generation_start shotId=${shot.shotId} prompt=${shot.videoPrompt?.slice(0,80)}`);
-      // #endregion
       
       for (let attempt = 1; attempt <= maxRetries; attempt++) {
         try {
@@ -326,20 +323,12 @@ async function generateReelAssets(
           break;
         } catch (err) {
           lastError = err instanceof Error ? err.message : String(err);
-          // #region agent log
-          const errName = err instanceof Error ? err.name : "Unknown";
-          console.log(`[DEBUG] replicate_error shotId=${shot.shotId} attempt=${attempt} errName=${errName} msg=${lastError.slice(0,200)}`);
-          // #endregion
           if (attempt >= maxRetries) {
             console.log(`GATE_B fail ${shot.shotId} attempt=${attempt} reason=${lastError.slice(0, 200)}`);
           }
         }
       }
     }
-    
-    // #region agent log
-    console.log(`[DEBUG] video_generation_complete videosGenerated=${Object.keys(videosByShot).length} totalShots=${shotsNeedingVideo.length}`);
-    // #endregion
     
     if (Object.keys(videosByShot).length > 0) {
       assets.videosByShot = videosByShot;
@@ -418,7 +407,6 @@ export async function processContentJob(job: Job<QueueJobPayload, void, string>)
           payload.brand_key,
           brief
         );
-        console.log(`[DEBUG] assets_generated jobId=${jobId.slice(0,8)} hasVoiceover=${!!assets.voiceoverUrl} hasMusic=${!!assets.musicUrl} videosCount=${Object.keys(assets.videosByShot || {}).length}`);
         cost = assetCost > 0 ? assetCost : null;
         
         // Render with assets (ensure fps has a default)

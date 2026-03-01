@@ -66,10 +66,6 @@ export default function InstagramReelsPage() {
   ];
 
   const handleGenerate = async () => {
-    // #region agent log
-    console.log("[DEBUG] handleGenerate START", { brandId, reelStyle, hookType, topic });
-    // #endregion
-
     if (!brandId) {
       setError("Select a brand");
       return;
@@ -83,16 +79,10 @@ export default function InstagramReelsPage() {
       // Step 1: Generate or use preset brief
       const selectedStyle = REEL_STYLES.find(s => s.value === reelStyle);
       const presetId = selectedStyle?.preset || "default_premium_reel_v1";
-      // #region agent log
-      console.log("[DEBUG] Step 1: calling generateCompactBrief", { presetId });
-      // #endregion
 
       const briefResult = await generateCompactBrief({
         usePreset: presetId,
       });
-      // #region agent log
-      console.log("[DEBUG] Step 1 result:", JSON.stringify(briefResult, null, 2).slice(0, 500));
-      // #endregion
 
       if ("error" in briefResult) {
         throw new Error(briefResult.error);
@@ -101,9 +91,6 @@ export default function InstagramReelsPage() {
       setBrief(briefResult.data.brief);
       setBriefKey(briefResult.data.briefKey);
       setCurrentStep(2);
-      // #region agent log
-      console.log("[DEBUG] Step 1 COMPLETE, moving to Step 2");
-      // #endregion
 
       // Step 2: Generate reel with director-level content
       const contentResult = await generateContent(brandId, {
@@ -118,13 +105,9 @@ export default function InstagramReelsPage() {
         contextNotes: `Style: ${selectedStyle?.label}. ${selectedStyle?.description}.`,
       });
 
-      console.log("[DEBUG] contentResult:", JSON.stringify(contentResult, null, 2));
-
       if ("error" in contentResult) {
         throw new Error(contentResult.error);
       }
-
-      console.log("[DEBUG] generationId:", contentResult.data.generationId);
 
       // Step 3: Create render job
       const jobPayload = {
@@ -141,9 +124,7 @@ export default function InstagramReelsPage() {
         },
       };
 
-      console.log("[DEBUG] jobPayload:", JSON.stringify(jobPayload, null, 2));
       const jobResult = await createJob(jobPayload);
-      console.log("[DEBUG] jobResult:", JSON.stringify(jobResult, null, 2));
 
       if ("error" in jobResult) {
         throw new Error(jobResult.error);
@@ -159,9 +140,6 @@ export default function InstagramReelsPage() {
       }, 1000);
 
     } catch (err) {
-      // #region agent log
-      console.error("[DEBUG] handleGenerate ERROR:", err);
-      // #endregion
       setError(err instanceof Error ? err.message : "Generation failed");
       setCurrentStep(0);
       setLoading(false);

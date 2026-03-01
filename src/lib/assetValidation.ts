@@ -398,7 +398,8 @@ export async function validateGeneratedVideoAsset(
   assetUrl: string,
   expectedDuration: number
 ): Promise<FullAssetValidationResult> {
-  const gateB = await validateAssetGateB(assetUrl, expectedDuration * 0.5);
+  const minDuration = expectedDuration * 0.5;
+  const gateB = await validateAssetGateB(assetUrl, minDuration);
   
   return {
     shotId,

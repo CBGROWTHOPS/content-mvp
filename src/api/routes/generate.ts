@@ -137,9 +137,6 @@ router.post("/generate-content", async (req: Request, res: Response) => {
 });
 
 router.post("/generate", validateJobBody, async (req: Request, res: Response) => {
-  // #region agent log
-  console.log(`[DEBUG] /generate received brand=${req.body?.brand_key} format=${req.body?.format} gen_id=${req.body?.generation_id?.slice(0,8)}`);
-  // #endregion
   try {
     const payload = req.body;
     const selected = selectModel(
