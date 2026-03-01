@@ -158,9 +158,7 @@ async function generateReelAssets(
       brief.intentCategory
     );
     if (!pacingResult.pass) {
-      console.log(`pacing_warn: ${pacingResult.issues.length} issues hook=${pacingResult.hookPattern ?? "none"}`);
-    } else {
-      console.log(`pacing_pass hook=${pacingResult.hookPattern}`);
+      console.log(`pacing_warn: ${pacingResult.issues.length} beats=${pacingResult.beatsCovered.length} payoff=${pacingResult.hasPayoff}`);
     }
   }
   

@@ -562,6 +562,7 @@ import {
   buildViralStoryboardPrompt, 
   validateViralFramework,
   type ShotForPacing,
+  type CtaMode,
 } from "./viralFramework.js";
 
 export interface StoryboardInput {
@@ -569,6 +570,8 @@ export interface StoryboardInput {
   durationSeconds: number;
   shotCount: number;
   reelType: ReelType;
+  customerProfileId?: string;
+  ctaMode?: CtaMode;
 }
 
 export interface StoryboardResult {
@@ -578,6 +581,8 @@ export interface StoryboardResult {
   viralValidation?: {
     pass: boolean;
     issues: string[];
+    hookPattern: string | null;
+    beatsCovered: string[];
   };
   tokenUsage: {
     prompt: number;
@@ -587,8 +592,8 @@ export interface StoryboardResult {
 }
 
 function buildStoryboardPrompt(input: StoryboardInput): string {
-  const { brief, durationSeconds } = input;
-  return buildViralStoryboardPrompt(brief, durationSeconds);
+  const { brief, durationSeconds, customerProfileId, ctaMode } = input;
+  return buildViralStoryboardPrompt({ brief, durationSeconds, customerProfileId, ctaMode });
 }
 
 function enrichShotWithBrief(
@@ -651,7 +656,8 @@ export async function generateStoryboardFromBrief(
   // Validate viral framework
   const shotsForPacing: ShotForPacing[] = enrichedShots.map(s => ({
     shotId: s.shotId,
-    purpose: (s as unknown as { purpose?: string }).purpose,
+    purpose: (s as unknown as { purpose?: string; beat?: string }).purpose,
+    beat: (s as unknown as { beat?: string }).beat,
     timeStart: s.timeStart,
     timeEnd: s.timeEnd,
     onScreenText: s.onScreenText,
@@ -669,7 +675,9 @@ export async function generateStoryboardFromBrief(
     },
     viralValidation: {
       pass: viralValidation.pass,
-      issues: viralValidation.allIssues,
+      issues: viralValidation.issues,
+      hookPattern: viralValidation.hookPattern,
+      beatsCovered: viralValidation.beatCoverage.covered,
     },
     tokenUsage: {
       prompt: completion.usage?.prompt_tokens ?? 0,

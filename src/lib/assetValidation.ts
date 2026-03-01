@@ -4,7 +4,7 @@
  * Rejects assets that don't meet quality and consistency standards.
  */
 import { CompactCreativeBrief, IntentCategory } from "./compactBrief.js";
-import { validateViralFramework, GLOBAL_VIRAL_RULES, type ShotForPacing } from "./viralFramework.js";
+import { validateViralFramework, GLOBAL_RULES, type ShotForPacing } from "./viralFramework.js";
 import { exec } from "child_process";
 import { promisify } from "util";
 
@@ -415,8 +415,9 @@ export async function validateGeneratedVideoAsset(
 export interface ViralPacingResult {
   pass: boolean;
   issues: string[];
-  hookValid: boolean;
   hookPattern: string | null;
+  beatsCovered: string[];
+  hasPayoff: boolean;
 }
 
 export function validateBlueprintPacing(
@@ -426,6 +427,7 @@ export function validateBlueprintPacing(
   const shotsForPacing: ShotForPacing[] = shots.map(s => ({
     shotId: s.shotId,
     purpose: (s as unknown as { purpose?: string }).purpose,
+    beat: (s as unknown as { beat?: string }).beat,
     timeStart: s.timeStart ?? 0,
     timeEnd: s.timeEnd ?? 0,
     onScreenText: s.onScreenText,
@@ -435,10 +437,11 @@ export function validateBlueprintPacing(
   
   return {
     pass: result.pass,
-    issues: result.allIssues,
-    hookValid: result.hook.pass,
-    hookPattern: result.hook.pattern,
+    issues: result.issues,
+    hookPattern: result.hookPattern,
+    beatsCovered: result.beatCoverage.covered,
+    hasPayoff: result.beatCoverage.hasPayoff,
   };
 }
 
-export { GLOBAL_VIRAL_RULES };
+export { GLOBAL_RULES as GLOBAL_VIRAL_RULES };
