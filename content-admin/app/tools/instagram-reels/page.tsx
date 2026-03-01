@@ -105,9 +105,13 @@ export default function InstagramReelsPage() {
         contextNotes: `Style: ${selectedStyle?.label}. ${selectedStyle?.description}.`,
       });
 
+      console.log("[DEBUG] contentResult:", JSON.stringify(contentResult, null, 2));
+
       if ("error" in contentResult) {
         throw new Error(contentResult.error);
       }
+
+      console.log("[DEBUG] generationId:", contentResult.data.generationId);
 
       // Step 3: Create render job
       const jobPayload = {
@@ -124,7 +128,9 @@ export default function InstagramReelsPage() {
         },
       };
 
+      console.log("[DEBUG] jobPayload:", JSON.stringify(jobPayload, null, 2));
       const jobResult = await createJob(jobPayload);
+      console.log("[DEBUG] jobResult:", JSON.stringify(jobResult, null, 2));
 
       if ("error" in jobResult) {
         throw new Error(jobResult.error);

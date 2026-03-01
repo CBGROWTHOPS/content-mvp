@@ -29,7 +29,16 @@ export async function runReplicate(
     ...(options?.aspectRatio && { aspect_ratio: options.aspectRatio }),
   };
 
+  // #region agent log
+  const startMs = Date.now();
+  console.log(`[DEBUG] replicate_call_start model=${modelPath} prompt=${prompt.slice(0,80)}`);
+  // #endregion
+  
   const output = await replicate.run(modelPath as `${string}/${string}`, { input });
+  
+  // #region agent log
+  console.log(`[DEBUG] replicate_call_success model=${modelPath} durationMs=${Date.now()-startMs} outputType=${typeof output}`);
+  // #endregion
 
   let url: string;
   if (typeof output === "string") {

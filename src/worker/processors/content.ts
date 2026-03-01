@@ -137,9 +137,6 @@ async function generateReelAssets(
   
   if (!gateA.pass) {
     const failureDetails = gateA.failures.map(f => `${f.shotId}:${f.field}`).join(",");
-    // #region agent log
-    fetch('http://127.0.0.1:7622/ingest/6914438b-b125-4fa3-85ef-baac9ba1b5cf',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'bc96f7'},body:JSON.stringify({sessionId:'bc96f7',location:'content.ts:139',message:'gate_a_fail',data:{jobId,failures:gateA.failures},hypothesisId:'H2,H4',timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
     console.log(`GATE_A fail shots=${failureDetails}`);
     throw new Error(`Shot contract validation failed: ${gateA.failures.map(f => f.reason).join("; ")}`);
   }
@@ -268,6 +265,9 @@ async function generateReelAssets(
     for (const shot of shotsNeedingVideo) {
       const maxRetries = 2;
       let lastError: string | undefined;
+      // #region agent log
+      console.log(`[DEBUG] shot_generation_start shotId=${shot.shotId} prompt=${shot.videoPrompt?.slice(0,80)}`);
+      // #endregion
       
       for (let attempt = 1; attempt <= maxRetries; attempt++) {
         try {
@@ -326,12 +326,20 @@ async function generateReelAssets(
           break;
         } catch (err) {
           lastError = err instanceof Error ? err.message : String(err);
+          // #region agent log
+          const errName = err instanceof Error ? err.name : "Unknown";
+          console.log(`[DEBUG] replicate_error shotId=${shot.shotId} attempt=${attempt} errName=${errName} msg=${lastError.slice(0,200)}`);
+          // #endregion
           if (attempt >= maxRetries) {
-            console.log(`GATE_B fail ${shot.shotId} attempt=${attempt} reason=${lastError.slice(0, 80)}`);
+            console.log(`GATE_B fail ${shot.shotId} attempt=${attempt} reason=${lastError.slice(0, 200)}`);
           }
         }
       }
     }
+    
+    // #region agent log
+    console.log(`[DEBUG] video_generation_complete videosGenerated=${Object.keys(videosByShot).length} totalShots=${shotsNeedingVideo.length}`);
+    // #endregion
     
     if (Object.keys(videosByShot).length > 0) {
       assets.videosByShot = videosByShot;
@@ -346,10 +354,6 @@ async function generateReelAssets(
 
 export async function processContentJob(job: Job<QueueJobPayload, void, string>): Promise<void> {
   const { jobId, payload } = job.data;
-
-  // #region agent log
-  fetch('http://127.0.0.1:7622/ingest/6914438b-b125-4fa3-85ef-baac9ba1b5cf',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'bc96f7'},body:JSON.stringify({sessionId:'bc96f7',location:'content.ts:347',message:'job_entry',data:{jobId,format:payload.format,brand:payload.brand_key},hypothesisId:'H5',timestamp:Date.now()})}).catch(()=>{});
-  // #endregion
 
   try {
     await supabase
@@ -407,9 +411,6 @@ export async function processContentJob(job: Job<QueueJobPayload, void, string>)
       const briefKey = (payload as { brief_key?: string }).brief_key;
       const tmpPath = path.join(os.tmpdir(), `remotion-${jobId}.mp4`);
       try {
-        // #region agent log
-        fetch('http://127.0.0.1:7622/ingest/6914438b-b125-4fa3-85ef-baac9ba1b5cf',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'bc96f7'},body:JSON.stringify({sessionId:'bc96f7',location:'content.ts:406',message:'before_generateReelAssets',data:{jobId,shots:blueprint.shots?.length,hasBrief:!!brief,intentCategory:brief?.intentCategory},hypothesisId:'H2,H3,H4',timestamp:Date.now()})}).catch(()=>{});
-        // #endregion
         // Generate audio/video assets based on reel type with validation
         const { assets, totalCost: assetCost } = await generateReelAssets(
           blueprint,
@@ -417,9 +418,7 @@ export async function processContentJob(job: Job<QueueJobPayload, void, string>)
           payload.brand_key,
           brief
         );
-        // #region agent log
-        fetch('http://127.0.0.1:7622/ingest/6914438b-b125-4fa3-85ef-baac9ba1b5cf',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'bc96f7'},body:JSON.stringify({sessionId:'bc96f7',location:'content.ts:416',message:'after_generateReelAssets',data:{jobId,assetCost,hasVoiceover:!!assets.voiceoverUrl,hasMusic:!!assets.musicUrl},hypothesisId:'H2,H3,H4',timestamp:Date.now()})}).catch(()=>{});
-        // #endregion
+        console.log(`[DEBUG] assets_generated jobId=${jobId.slice(0,8)} hasVoiceover=${!!assets.voiceoverUrl} hasMusic=${!!assets.musicUrl} videosCount=${Object.keys(assets.videosByShot || {}).length}`);
         cost = assetCost > 0 ? assetCost : null;
         
         // Render with assets (ensure fps has a default)
@@ -434,10 +433,7 @@ export async function processContentJob(job: Job<QueueJobPayload, void, string>)
         usedRemotion = true;
       } catch (remotionErr) {
         const errMsg = remotionErr instanceof Error ? remotionErr.message : String(remotionErr);
-        // #region agent log
-        fetch('http://127.0.0.1:7622/ingest/6914438b-b125-4fa3-85ef-baac9ba1b5cf',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'bc96f7'},body:JSON.stringify({sessionId:'bc96f7',location:'content.ts:430',message:'remotion_catch_error',data:{jobId,error:errMsg.slice(0,200)},hypothesisId:'H2,H3,H4',timestamp:Date.now()})}).catch(()=>{});
-        // #endregion
-        console.log(`render_fallback: ${errMsg.slice(0, 60)}`);
+        console.log(`render_error: ${errMsg.slice(0, 120)}`);
       }
     }
     
@@ -514,11 +510,7 @@ export async function processContentJob(job: Job<QueueJobPayload, void, string>)
     }
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    const stack = err instanceof Error ? err.stack?.slice(0, 300) : undefined;
-    // #region agent log
-    fetch('http://127.0.0.1:7622/ingest/6914438b-b125-4fa3-85ef-baac9ba1b5cf',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'bc96f7'},body:JSON.stringify({sessionId:'bc96f7',location:'content.ts:518',message:'job_failed',data:{jobId,error:message.slice(0,200),stack},hypothesisId:'H1,H2,H3,H4,H5',timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
-    console.log(`JOB failed id=${jobId.slice(0, 8)} error=${message.slice(0, 80)}`);
+    console.log(`JOB failed id=${jobId.slice(0, 8)} error=${message.slice(0, 150)}`);
 
     await supabase
       .from("jobs")
