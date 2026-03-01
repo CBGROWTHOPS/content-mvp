@@ -15,7 +15,6 @@ import { loadBrand } from "../../lib/brandRegistry.js";
 import { estimateTokenCount } from "../../lib/tokenEstimate.js";
 import { getOrGenerateBrief, computeBriefKey, getCachedBrief } from "../../lib/briefCache.js";
 import { listPresets, getPresetBrief } from "../../lib/briefPresets.js";
-import { listProfiles, getProfile } from "../../lib/customerProfiles.js";
 import type { BriefInput } from "../../lib/compactBrief.js";
 
 const router = Router();
@@ -304,22 +303,6 @@ router.post("/storyboard-from-brief", async (req: Request, res: Response) => {
     const msg = err instanceof Error ? err.message : "Internal server error";
     res.status(500).json({ error: msg });
   }
-});
-
-// Customer Profile endpoints
-
-router.get("/customer-profiles", (_req: Request, res: Response) => {
-  res.json({ profiles: listProfiles() });
-});
-
-router.get("/customer-profiles/:profileId", (req: Request, res: Response) => {
-  const { profileId } = req.params;
-  const profile = getProfile(profileId);
-  if (!profile) {
-    res.status(404).json({ error: "Profile not found" });
-    return;
-  }
-  res.json({ profile });
 });
 
 export default router;

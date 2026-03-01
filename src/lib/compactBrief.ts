@@ -3,8 +3,9 @@
  * This replaces the verbose CreativeDirectorBrief with a 10-field schema.
  */
 import OpenAI from "openai";
+import type { IntentCategory } from "./beatFramework.js";
 
-export type IntentCategory = "growth" | "lead_gen" | "authority" | "education" | "conversion";
+export type { IntentCategory };
 
 export interface CompactCreativeBrief {
   v: 1;

@@ -5,6 +5,7 @@ import flowsRouter from "./routes/flows.js";
 import jobsRouter from "./routes/jobs.js";
 import brandsRouter from "./routes/brands.js";
 import saveToDriveRouter from "./routes/saveToDrive.js";
+import customerProfilesRouter from "./routes/customerProfiles.js";
 
 const allowedOrigins = [
   "https://content-admin-nine.vercel.app",
@@ -36,6 +37,7 @@ app.get("/health", (_req, res) => {
 });
 
 app.use(generateRouter);
+app.use(customerProfilesRouter);
 app.use("/flows", flowsRouter);
 app.use("/jobs", jobsRouter);
 app.use("/brands", brandsRouter);

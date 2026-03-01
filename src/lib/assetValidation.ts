@@ -4,7 +4,7 @@
  * Rejects assets that don't meet quality and consistency standards.
  */
 import { CompactCreativeBrief, IntentCategory } from "./compactBrief.js";
-import { validateViralFramework, GLOBAL_RULES, type ShotForPacing } from "./viralFramework.js";
+import { validateViralFramework, type ShotForValidation as ViralShotForValidation, GLOBAL_VIRAL_RULES } from "./viralFramework.js";
 import { exec } from "child_process";
 import { promisify } from "util";
 
@@ -415,7 +415,6 @@ export async function validateGeneratedVideoAsset(
 export interface ViralPacingResult {
   pass: boolean;
   issues: string[];
-  hookPattern: string | null;
   beatsCovered: string[];
   hasPayoff: boolean;
 }
@@ -424,24 +423,22 @@ export function validateBlueprintPacing(
   shots: ShotForValidation[],
   intentCategory: IntentCategory
 ): ViralPacingResult {
-  const shotsForPacing: ShotForPacing[] = shots.map(s => ({
+  const shotsForValidation: ViralShotForValidation[] = shots.map(s => ({
     shotId: s.shotId,
-    purpose: (s as unknown as { purpose?: string }).purpose,
     beat: (s as unknown as { beat?: string }).beat,
     timeStart: s.timeStart ?? 0,
     timeEnd: s.timeEnd ?? 0,
     onScreenText: s.onScreenText,
   }));
   
-  const result = validateViralFramework(shotsForPacing, intentCategory);
+  const result = validateViralFramework(shotsForValidation, intentCategory);
   
   return {
     pass: result.pass,
     issues: result.issues,
-    hookPattern: result.hookPattern,
-    beatsCovered: result.beatCoverage.covered,
-    hasPayoff: result.beatCoverage.hasPayoff,
+    beatsCovered: result.beats.present,
+    hasPayoff: result.beats.hasPayoff,
   };
 }
 
-export { GLOBAL_RULES as GLOBAL_VIRAL_RULES };
+export { GLOBAL_VIRAL_RULES };

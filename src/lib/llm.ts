@@ -561,7 +561,7 @@ import type { CompactCreativeBrief } from "./compactBrief.js";
 import { 
   buildViralStoryboardPrompt, 
   validateViralFramework,
-  type ShotForPacing,
+  type ShotForValidation,
   type CtaMode,
 } from "./viralFramework.js";
 
@@ -581,8 +581,8 @@ export interface StoryboardResult {
   viralValidation?: {
     pass: boolean;
     issues: string[];
-    hookPattern: string | null;
     beatsCovered: string[];
+    hasPayoff: boolean;
   };
   tokenUsage: {
     prompt: number;
@@ -654,16 +654,15 @@ export async function generateStoryboardFromBrief(
   const enrichedShots = parsed.shots.map(shot => enrichShotWithBrief(shot, input.brief));
 
   // Validate viral framework
-  const shotsForPacing: ShotForPacing[] = enrichedShots.map(s => ({
+  const shotsForValidation: ShotForValidation[] = enrichedShots.map(s => ({
     shotId: s.shotId,
-    purpose: (s as unknown as { purpose?: string; beat?: string }).purpose,
     beat: (s as unknown as { beat?: string }).beat,
     timeStart: s.timeStart,
     timeEnd: s.timeEnd,
     onScreenText: s.onScreenText,
   }));
   
-  const viralValidation = validateViralFramework(shotsForPacing, input.brief.intentCategory);
+  const viralValidation = validateViralFramework(shotsForValidation, input.brief.intentCategory);
 
   return {
     shots: enrichedShots,
@@ -676,8 +675,8 @@ export async function generateStoryboardFromBrief(
     viralValidation: {
       pass: viralValidation.pass,
       issues: viralValidation.issues,
-      hookPattern: viralValidation.hookPattern,
-      beatsCovered: viralValidation.beatCoverage.covered,
+      beatsCovered: viralValidation.beats.present,
+      hasPayoff: viralValidation.beats.hasPayoff,
     },
     tokenUsage: {
       prompt: completion.usage?.prompt_tokens ?? 0,
