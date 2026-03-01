@@ -4,8 +4,11 @@
  */
 import OpenAI from "openai";
 
+export type IntentCategory = "growth" | "lead_gen" | "authority" | "education" | "conversion";
+
 export interface CompactCreativeBrief {
   v: 1;
+  intentCategory: IntentCategory;  // Drives structure, CTA, emotional arc
   concept: string;    // 1 line what this reel is
   tone: string;       // 3 words max
   look: string;       // 3-6 words (visual style)
@@ -26,7 +29,7 @@ export interface BriefInput {
   constraints?: string;
 }
 
-const COMPACT_SCHEMA = `{"v":1,"concept":"","tone":"","look":"","camera":"","light":"","music":"","vo":"","text":"","rules":[]}`;
+const COMPACT_SCHEMA = `{"v":1,"intentCategory":"growth|lead_gen|authority|education|conversion","concept":"","tone":"","look":"","camera":"","light":"","music":"","vo":"","text":"","rules":[]}`;
 
 const SYSTEM_PROMPT = "Return only valid minified JSON matching schema. No markdown. No extra keys. No explanations.";
 
@@ -60,9 +63,19 @@ const MANDATORY_RULES = [
   "text every shot",
 ];
 
-function applyDefaults(brief: Partial<CompactCreativeBrief>): CompactCreativeBrief {
+function inferIntentCategory(goal: string): IntentCategory {
+  const lower = goal.toLowerCase();
+  if (lower.includes("lead") || lower.includes("dm") || lower.includes("opt-in")) return "lead_gen";
+  if (lower.includes("authority") || lower.includes("trust") || lower.includes("position")) return "authority";
+  if (lower.includes("teach") || lower.includes("educat") || lower.includes("explain")) return "education";
+  if (lower.includes("convert") || lower.includes("sale") || lower.includes("buy") || lower.includes("urgent")) return "conversion";
+  return "growth";
+}
+
+function applyDefaults(brief: Partial<CompactCreativeBrief>, goal?: string): CompactCreativeBrief {
   return {
     v: 1,
+    intentCategory: brief.intentCategory || inferIntentCategory(goal || ""),
     concept: brief.concept || "Brand showcase",
     tone: brief.tone || DEFAULT_VALUES.tone!,
     look: brief.look || "cinematic real footage",
@@ -121,7 +134,7 @@ export async function generateCompactBrief(
     throw new Error(`Failed to parse brief JSON: ${raw.slice(0, 100)}`);
   }
 
-  const brief = applyDefaults(parsed);
+  const brief = applyDefaults(parsed, input.goal);
 
   return {
     brief,
@@ -134,11 +147,15 @@ export async function generateCompactBrief(
   };
 }
 
+const VALID_INTENT_CATEGORIES: IntentCategory[] = ["growth", "lead_gen", "authority", "education", "conversion"];
+
 export function validateBrief(brief: unknown): brief is CompactCreativeBrief {
   if (!brief || typeof brief !== "object") return false;
   const b = brief as Record<string, unknown>;
   return (
     b.v === 1 &&
+    typeof b.intentCategory === "string" &&
+    VALID_INTENT_CATEGORIES.includes(b.intentCategory as IntentCategory) &&
     typeof b.concept === "string" &&
     typeof b.tone === "string" &&
     typeof b.look === "string" &&

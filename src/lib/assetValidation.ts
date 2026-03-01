@@ -3,7 +3,8 @@
  * Two gates: Gate A (pre-generation) and Gate B (post-generation).
  * Rejects assets that don't meet quality and consistency standards.
  */
-import { CompactCreativeBrief } from "./compactBrief.js";
+import { CompactCreativeBrief, IntentCategory } from "./compactBrief.js";
+import { validateViralFramework, GLOBAL_VIRAL_RULES, type ShotForPacing } from "./viralFramework.js";
 import { exec } from "child_process";
 import { promisify } from "util";
 
@@ -405,3 +406,39 @@ export async function validateGeneratedVideoAsset(
     overallPass: gateB.pass,
   };
 }
+
+// ============================================================================
+// VIRAL PACING VALIDATION
+// Called to validate blueprint pacing before generation
+// ============================================================================
+
+export interface ViralPacingResult {
+  pass: boolean;
+  issues: string[];
+  hookValid: boolean;
+  hookPattern: string | null;
+}
+
+export function validateBlueprintPacing(
+  shots: ShotForValidation[],
+  intentCategory: IntentCategory
+): ViralPacingResult {
+  const shotsForPacing: ShotForPacing[] = shots.map(s => ({
+    shotId: s.shotId,
+    purpose: (s as unknown as { purpose?: string }).purpose,
+    timeStart: s.timeStart ?? 0,
+    timeEnd: s.timeEnd ?? 0,
+    onScreenText: s.onScreenText,
+  }));
+  
+  const result = validateViralFramework(shotsForPacing, intentCategory);
+  
+  return {
+    pass: result.pass,
+    issues: result.allIssues,
+    hookValid: result.hook.pass,
+    hookPattern: result.hook.pattern,
+  };
+}
+
+export { GLOBAL_VIRAL_RULES };

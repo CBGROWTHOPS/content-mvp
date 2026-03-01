@@ -14,6 +14,7 @@ import {
   getRulesFromBrief,
   validateShotContractGateA,
   validateGeneratedVideoAsset,
+  validateBlueprintPacing,
   type ShotForValidation,
   type GateAResult,
 } from "../../lib/assetValidation.js";
@@ -149,6 +150,20 @@ async function generateReelAssets(
   if (!blueprintValidation.pass) {
     console.log(`blueprint_warn: ${blueprintValidation.failures.length} issues`);
   }
+  
+  // Viral pacing validation (warning only, doesn't block)
+  if (brief?.intentCategory) {
+    const pacingResult = validateBlueprintPacing(
+      blueprint.shots as ShotForValidation[],
+      brief.intentCategory
+    );
+    if (!pacingResult.pass) {
+      console.log(`pacing_warn: ${pacingResult.issues.length} issues hook=${pacingResult.hookPattern ?? "none"}`);
+    } else {
+      console.log(`pacing_pass hook=${pacingResult.hookPattern}`);
+    }
+  }
+  
   const assets: ReelAssetsInput = {};
   let totalCost = 0;
   const tmpDir = path.join(os.tmpdir(), `reel-assets-${jobId}`);

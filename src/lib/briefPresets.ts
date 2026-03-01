@@ -7,6 +7,7 @@ import { CompactCreativeBrief } from "./compactBrief.js";
 export const BRIEF_PRESETS: Record<string, CompactCreativeBrief> = {
   default_premium_reel_v1: {
     v: 1,
+    intentCategory: "growth",
     concept: "Premium brand showcase",
     tone: "confident calm",
     look: "cinematic real footage shallow DOF",
@@ -20,6 +21,7 @@ export const BRIEF_PRESETS: Record<string, CompactCreativeBrief> = {
 
   luxury_crm_v1: {
     v: 1,
+    intentCategory: "authority",
     concept: "Luxury CRM infrastructure for professionals",
     tone: "confident authority",
     look: "cinematic real footage shallow DOF",
@@ -33,6 +35,7 @@ export const BRIEF_PRESETS: Record<string, CompactCreativeBrief> = {
 
   energetic_promo_v1: {
     v: 1,
+    intentCategory: "conversion",
     concept: "High-energy product promotion",
     tone: "exciting bold",
     look: "vibrant saturated dynamic motion",
@@ -46,6 +49,7 @@ export const BRIEF_PRESETS: Record<string, CompactCreativeBrief> = {
 
   minimal_elegant_v1: {
     v: 1,
+    intentCategory: "authority",
     concept: "Minimalist elegant brand story",
     tone: "refined subtle",
     look: "clean minimal white space",
@@ -59,6 +63,7 @@ export const BRIEF_PRESETS: Record<string, CompactCreativeBrief> = {
 
   testimonial_trust_v1: {
     v: 1,
+    intentCategory: "lead_gen",
     concept: "Customer testimonial trust builder",
     tone: "authentic warm",
     look: "natural documentary realistic",
@@ -68,6 +73,34 @@ export const BRIEF_PRESETS: Record<string, CompactCreativeBrief> = {
     vo: "conversational genuine",
     text: "clean readable lower-third",
     rules: ["must have real video", "no blank backgrounds", "text every shot", "show faces"],
+  },
+
+  education_tips_v1: {
+    v: 1,
+    intentCategory: "education",
+    concept: "Quick educational tips and how-tos",
+    tone: "clear helpful",
+    look: "clean bright professional",
+    camera: "static medium shot",
+    light: "even bright fill",
+    music: "light upbeat corporate",
+    vo: "friendly expert",
+    text: "bold readable center",
+    rules: ["must have real video", "no blank backgrounds", "text every shot", "clear hierarchy"],
+  },
+
+  lead_gen_dm_v1: {
+    v: 1,
+    intentCategory: "lead_gen",
+    concept: "Lead generation with DM CTA",
+    tone: "confident direct",
+    look: "professional polished studio",
+    camera: "medium close-up slight push",
+    light: "soft key fill rim",
+    music: "modern motivational build",
+    vo: "confident persuasive",
+    text: "bold impact center punch",
+    rules: ["must have real video", "no blank backgrounds", "text every shot", "clear CTA"],
   },
 };
 

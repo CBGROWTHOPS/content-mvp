@@ -558,6 +558,11 @@ export async function generateStructuredContent(
 }
 
 import type { CompactCreativeBrief } from "./compactBrief.js";
+import { 
+  buildViralStoryboardPrompt, 
+  validateViralFramework,
+  type ShotForPacing,
+} from "./viralFramework.js";
 
 export interface StoryboardInput {
   brief: CompactCreativeBrief;
@@ -570,6 +575,10 @@ export interface StoryboardResult {
   shots: ReelBlueprintShot[];
   voiceoverScript?: VoiceoverScript;
   musicTrack?: MusicTrackSelection;
+  viralValidation?: {
+    pass: boolean;
+    issues: string[];
+  };
   tokenUsage: {
     prompt: number;
     completion: number;
@@ -578,49 +587,8 @@ export interface StoryboardResult {
 }
 
 function buildStoryboardPrompt(input: StoryboardInput): string {
-  const { brief, durationSeconds, shotCount, reelType } = input;
-  
-  const lines = [
-    "You have a creative brief contract to follow EXACTLY:",
-    JSON.stringify(brief, null, 2),
-    "",
-    "Generate shots that MUST follow:",
-    `- look: ${brief.look}`,
-    `- camera: ${brief.camera}`,
-    `- light: ${brief.light}`,
-    `- text style: ${brief.text}`,
-    `- rules: ${brief.rules.join(", ")}`,
-    "",
-    `Duration: ${durationSeconds} seconds`,
-    `Shot count: ${shotCount} shots`,
-    `Reel type: ${reelType}`,
-    "",
-    "Each shot.videoPrompt MUST include the look, camera, and light from the brief.",
-    "Each shot.onScreenText.text MUST be present and follow the text style.",
-    "",
-    "Return valid JSON matching this schema:",
-    JSON.stringify({
-      shots: [{
-        shotId: "string",
-        timeStart: "number",
-        timeEnd: "number",
-        shotType: "wide | medium | close",
-        cameraMovement: "string - use brief.camera",
-        sceneDescription: "string - use brief.concept + brief.look",
-        visualSource: "generated_video | solid_bg",
-        videoPrompt: "string - MUST include brief.look + brief.camera + brief.light",
-        onScreenText: { text: "string - required, 3-8 words" },
-        lightingNotes: "string - use brief.light",
-      }],
-      voiceoverScript: {
-        fullScript: "string",
-        segments: [{ shotId: "string", text: "string", emotion: "string" }],
-      },
-      musicTrack: { mood: "string", tempo: "slow | medium | upbeat", genre: "string" },
-    }, null, 2),
-  ];
-  
-  return lines.join("\n");
+  const { brief, durationSeconds } = input;
+  return buildViralStoryboardPrompt(brief, durationSeconds);
 }
 
 function enrichShotWithBrief(
@@ -680,6 +648,17 @@ export async function generateStoryboardFromBrief(
 
   const enrichedShots = parsed.shots.map(shot => enrichShotWithBrief(shot, input.brief));
 
+  // Validate viral framework
+  const shotsForPacing: ShotForPacing[] = enrichedShots.map(s => ({
+    shotId: s.shotId,
+    purpose: (s as unknown as { purpose?: string }).purpose,
+    timeStart: s.timeStart,
+    timeEnd: s.timeEnd,
+    onScreenText: s.onScreenText,
+  }));
+  
+  const viralValidation = validateViralFramework(shotsForPacing, input.brief.intentCategory);
+
   return {
     shots: enrichedShots,
     voiceoverScript: parsed.voiceoverScript,
@@ -687,6 +666,10 @@ export async function generateStoryboardFromBrief(
       mood: input.brief.music.split(" ")[0] || "modern",
       tempo: "medium",
       genre: input.brief.music,
+    },
+    viralValidation: {
+      pass: viralValidation.pass,
+      issues: viralValidation.allIssues,
     },
     tokenUsage: {
       prompt: completion.usage?.prompt_tokens ?? 0,

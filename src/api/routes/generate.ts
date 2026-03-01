@@ -293,6 +293,7 @@ router.post("/storyboard-from-brief", async (req: Request, res: Response) => {
       shots: result.shots,
       voiceoverScript: result.voiceoverScript,
       musicTrack: result.musicTrack,
+      viralValidation: result.viralValidation,
       tokenUsage: result.tokenUsage,
     });
   } catch (err) {
