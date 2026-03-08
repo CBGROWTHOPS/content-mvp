@@ -7,7 +7,7 @@ import type { CompactCreativeBrief } from "./compactBrief.js";
 import type { IntentCategory, Beat } from "./beatFramework.js";
 import { REQUIRED_BEATS_BY_INTENT } from "./beatFramework.js";
 import { validateBeatCoverage, type BeatValidationResult } from "./beatValidation.js";
-import { validatePacing, getPacingConstraints, type PacingValidationResult } from "./pacingRules.js";
+import { validatePacing, getPacingForDuration, type PacingValidationResult } from "./pacingRules.js";
 import { validateEditRhythm, type RhythmValidationResult, type PatternInterrupt } from "./editRhythm.js";
 import { resolveCtaMode, getCtaExample, type CtaMode } from "./ctaModes.js";
 import { getCustomerProfile, type CustomerProfile } from "./customerProfiles.js";
@@ -70,16 +70,21 @@ export interface StoryboardPromptInput {
   durationSeconds: number;
   customerProfileId?: string;
   ctaMode?: CtaMode;
+  funnelStage?: string;
+  contentIntent?: string;
 }
 
 export function buildViralStoryboardPrompt(input: StoryboardPromptInput): string {
-  const { brief, durationSeconds, customerProfileId, ctaMode } = input;
+  const { brief, durationSeconds, customerProfileId, ctaMode, funnelStage, contentIntent } = input;
   const intent = brief.intentCategory;
-  const pacing = getPacingConstraints(intent);
+  const pacing = getPacingForDuration(Math.min(30, Math.max(15, durationSeconds)));
   const requiredBeats = REQUIRED_BEATS_BY_INTENT[intent];
   const resolvedCta = resolveCtaMode(intent, ctaMode);
   const ctaExample = getCtaExample(resolvedCta);
   const profile = getCustomerProfile(customerProfileId);
+
+  // Music energy: upbeat for lead gen, medium for awareness/growth/education
+  const musicEnergy = intent === "lead_gen" ? "upbeat" : "medium";
 
   // Minimal profile injection (only what's needed for hooks/scenes)
   const profileBlock = `Target: ${profile.label}
@@ -88,16 +93,36 @@ Desires: ${profile.desires.slice(0, 2).join(", ")}
 Objections: ${profile.objections[0]}
 Environment: ${profile.environment}`;
 
-  // Constraints block (no prose)
-  const constraintsBlock = `Beats: ${requiredBeats.join(", ")}, payoff (required)
-Pacing: ${pacing.maxShots} shots max, ${pacing.minShotSec}-${pacing.maxShotSec}s each, ${pacing.maxTotalSec}s total
-Text: max 6 words per frame
+  // Hard constraints - enforce to prevent 60s boring reels
+  const constraintsBlock = `HARD CONSTRAINTS (non-negotiable):
+- Total reel: 15-30 seconds MAX, NEVER 60+
+- Max shots: ${pacing.maxShots} (6 for 15s, 8 for 30s)
+- Each shot: 2-4 seconds, never more
+- Hook (shot1): MUST be under 2 seconds, pattern interrupt
+- Every shot MUST have onScreenText defined (max 6 words)
+- Music tempo: ${musicEnergy} (lead_gen=upbeat, awareness=medium)
+
+Beats: ${requiredBeats.join(", ")}, payoff (required)
 CTA: ${resolvedCta} ("${ctaExample}")`;
+
+  const funnelBlock =
+    funnelStage || contentIntent
+      ? `
+## FUNNEL
+${funnelStage ? `Stage: ${funnelStage} (tof=awareness/cold, mof=consideration/warm, bof=conversion/hot)` : ""}
+${contentIntent ? `Intent: ${contentIntent}` : ""}
+Adjust shot descriptions, energy, and CTA accordingly:
+- TOF: softer hook, educate or entertain
+- MOF: social proof, address objections
+- BOF: urgency, clear CTA, outcome-focused
+`
+      : "";
 
   return `Generate Instagram Reel blueprint.
 
 ## INTENT: ${intent}
 ${profileBlock}
+${funnelBlock}
 
 ## CONSTRAINTS
 ${constraintsBlock}
@@ -131,7 +156,7 @@ Example: glare gone, soft light, motorized motion, premium interior.
     "fullScript": "string",
     "segments": [{"shotId": "shot1", "text": "string", "emotion": "string"}]
   },
-  "musicTrack": {"mood": "string", "tempo": "slow|medium|upbeat"}
+  "musicTrack": {"mood": "string", "tempo": "${musicEnergy}"}
 }`;
 }
 

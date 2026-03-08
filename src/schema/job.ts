@@ -42,6 +42,8 @@ const baseJobSchema = z.object({
     .record(z.string(), z.union([z.string(), z.number(), z.boolean()]))
     .default({}),
   generation_id: z.string().uuid().optional(),
+  funnel_stage: z.string().optional(),
+  content_intent: z.string().optional(),
 });
 
 export const jobSchema = baseJobSchema

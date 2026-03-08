@@ -3,7 +3,13 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { buildPrompt } from "../../core/prompts.js";
-import { runReplicate, generateImage, imageToVideo, generateVideoFromPrompt } from "../../lib/replicate.js";
+import {
+  generateVideo as higgsfieldGenerateVideo,
+  generateUGCVideo as higgsfieldGenerateUGCVideo,
+  generateImage as higgsfieldGenerateImage,
+  isHiggsfieldAvailable,
+} from "../../lib/higgsfield.js";
+import { runReplicate, generateImage as replicateGenerateImage, imageToVideo, generateVideoFromPrompt } from "../../lib/replicate.js";
 import { renderReelFromBlueprint, type ReelAssetsInput } from "../../remotion/render.js";
 import { supabase, STORAGE_BUCKET, getStoragePath } from "../../lib/supabase.js";
 import { generateVoiceoverToFile, VOICE_PRESETS } from "../../lib/elevenlabs.js";
@@ -45,7 +51,7 @@ async function updateProgress(jobId: string, step: ProgressStep): Promise<void> 
     .eq("id", jobId);
 }
 
-type ReelType = "text_overlay" | "voiceover" | "broll" | "talking_head";
+type ReelType = "text_overlay" | "voiceover" | "broll" | "talking_head" | "ugc";
 
 interface ExtendedBlueprint {
   format: string;
@@ -280,11 +286,28 @@ async function generateReelAssets(
             const imagePrompt = attempt > 1
               ? `${shot.videoPrompt!}. Photorealistic, high quality, professional photography, sharp focus.`
               : shot.videoPrompt!;
-            
-            const imageResult = await generateImage(imagePrompt, {
-              aspectRatio: "9:16",
-              negativePrompt: "blurry, low quality, abstract, void, blank, amateur, watermark, text, logo",
-            });
+
+            let imageResult: { url: string; cost?: number | null };
+            let imageProvider: "higgsfield" | "replicate_fallback" = "replicate_fallback";
+
+            if (isHiggsfieldAvailable()) {
+              try {
+                const hf = await higgsfieldGenerateImage(imagePrompt, { aspectRatio: "9:16" });
+                imageResult = { url: hf.url, cost: 0 };
+                imageProvider = "higgsfield";
+              } catch {
+                imageResult = await replicateGenerateImage(imagePrompt, {
+                  aspectRatio: "9:16",
+                  negativePrompt: "blurry, low quality, abstract, void, blank, amateur, watermark, text, logo",
+                });
+              }
+            } else {
+              imageResult = await replicateGenerateImage(imagePrompt, {
+                aspectRatio: "9:16",
+                negativePrompt: "blurry, low quality, abstract, void, blank, amateur, watermark, text, logo",
+              });
+            }
+            console.log(`IMAGE_GEN ${shot.shotId} provider=${imageProvider}`);
             
             const imageResp = await fetch(imageResult.url);
             if (!imageResp.ok) throw new Error(`image_fetch_failed:${imageResp.status}`);
@@ -379,25 +402,60 @@ async function generateReelAssets(
         }
       }
     } else {
-      // Legacy: direct text-to-video with minimax
+      // Direct text-to-video: Higgsfield first, Replicate fallback
       await updateProgress(jobId, "generating_video");
-      
+
       for (const shot of shotsNeedingVideo) {
         const maxRetries = 2;
         let lastError: string | undefined;
-        
+
         for (let attempt = 1; attempt <= maxRetries; attempt++) {
           try {
-            const shotDuration = shot.timeEnd - shot.timeStart;
+            const shotDuration = Math.min(4, shot.timeEnd - shot.timeStart);
             const prompt = attempt > 1
               ? `${shot.videoPrompt!}. MUST be real video footage, cinematic, no abstract or blank backgrounds.`
               : shot.videoPrompt!;
-            
-            const { url, cost } = await runReplicate(
-              "minimax/video-01",
-              prompt,
-              { lengthSeconds: Math.ceil(shotDuration), aspectRatio: "9:16" }
-            );
+
+            let url: string;
+            let cost: number | null = null;
+            let videoProvider: "higgsfield" | "replicate_fallback" = "replicate_fallback";
+
+            if (isHiggsfieldAvailable()) {
+              try {
+                const hfResult = reelType === "ugc"
+                  ? await higgsfieldGenerateUGCVideo(prompt, {
+                      aspectRatio: "9:16",
+                      durationSeconds: Math.ceil(shotDuration),
+                    })
+                  : await higgsfieldGenerateVideo(prompt, {
+                      aspectRatio: "9:16",
+                      durationSeconds: Math.ceil(shotDuration),
+                    });
+                url = hfResult.url;
+                videoProvider = "higgsfield";
+              } catch {
+                const videoModel = reelType === "ugc"
+                  ? "kling-ai/kling-video-3.0"
+                  : "google/veo-3-fast";
+                const repResult = await runReplicate(videoModel, prompt, {
+                  lengthSeconds: Math.ceil(shotDuration),
+                  aspectRatio: "9:16",
+                });
+                url = repResult.url;
+                cost = repResult.cost ?? null;
+              }
+            } else {
+              const videoModel = reelType === "ugc"
+                ? "kling-ai/kling-video-3.0"
+                : "google/veo-3-fast";
+              const repResult = await runReplicate(videoModel, prompt, {
+                lengthSeconds: Math.ceil(shotDuration),
+                aspectRatio: "9:16",
+              });
+              url = repResult.url;
+              cost = repResult.cost ?? null;
+            }
+            console.log(`VIDEO_GEN ${shot.shotId} provider=${videoProvider}`);
             
             const videoResp = await fetch(url);
             if (!videoResp.ok) throw new Error(`fetch_failed:${videoResp.status}`);

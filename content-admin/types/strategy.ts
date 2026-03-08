@@ -29,6 +29,10 @@ export interface StrategySelection {
   ctaStyle?: string;
   /** Advanced: include offer in output */
   offerToggle?: boolean;
+  /** Funnel stage: tof, mof, bof */
+  funnelStage?: string;
+  /** Content intent per stage, e.g. tof_awareness, bof_lead_gen */
+  contentIntent?: string;
 }
 
 export interface TileOption {

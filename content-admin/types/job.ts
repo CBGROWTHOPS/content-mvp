@@ -50,6 +50,8 @@ export interface JobListItem {
   brand: string;
   format: string;
   hook_type: string | null;
+  funnel_stage?: string | null;
+  content_intent?: string | null;
   status: JobStatus;
   created_at: string;
   primary_asset?: { url: string; type: string } | null;

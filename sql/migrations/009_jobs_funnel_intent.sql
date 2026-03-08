@@ -1,0 +1,4 @@
+ALTER TABLE jobs
+  ADD COLUMN IF NOT EXISTS funnel_stage    TEXT,
+  ADD COLUMN IF NOT EXISTS content_intent  TEXT,
+  ADD COLUMN IF NOT EXISTS provider_log    JSONB;

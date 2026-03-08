@@ -12,7 +12,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 /** ReelBlueprint shape from generations.reel_blueprint */
 export interface ReelBlueprintInput {
   format: string;
-  reelType?: "text_overlay" | "voiceover" | "broll" | "talking_head";
+  reelType?: "text_overlay" | "voiceover" | "broll" | "talking_head" | "ugc";
   durationSeconds: number;
   fps: number;
   voiceoverScript?: {

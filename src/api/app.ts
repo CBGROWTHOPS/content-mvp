@@ -4,6 +4,7 @@ import generateRouter from "./routes/generate.js";
 import flowsRouter from "./routes/flows.js";
 import jobsRouter from "./routes/jobs.js";
 import brandsRouter from "./routes/brands.js";
+import brandKitsRouter from "./routes/brandKits.js";
 import saveToDriveRouter from "./routes/saveToDrive.js";
 import customerProfilesRouter from "./routes/customerProfiles.js";
 
@@ -54,6 +55,7 @@ app.use(customerProfilesRouter);
 app.use("/flows", flowsRouter);
 app.use("/jobs", jobsRouter);
 app.use("/brands", brandsRouter);
+app.use("/brand-kits", brandKitsRouter);
 app.use(saveToDriveRouter);
 
 export default app;

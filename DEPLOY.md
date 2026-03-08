@@ -55,6 +55,7 @@ In each Railway service, set:
 - `SUPABASE_URL`
 - `SUPABASE_SERVICE_KEY`
 - `REPLICATE_API_TOKEN`
+- `HIGGSFIELD_API_KEY` (optional — from cloud.higgsfield.ai → API Keys; routes here first when set, Replicate fallback on error)
 - `PORT` (Railway sets this automatically)
 
 **Worker service:** Same as API.

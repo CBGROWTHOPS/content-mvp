@@ -6,13 +6,22 @@ const getBaseUrl = () => {
   return url.replace(/\/$/, "");
 };
 
-export async function fetchJobs(): Promise<
-  { data: unknown[] } | { error: string }
-> {
+export async function fetchJobs(params?: {
+  funnel_stage?: string;
+  content_intent?: string;
+}): Promise<{ data: unknown[] } | { error: string }> {
   try {
-    const res = await fetch(`${getBaseUrl()}/jobs`, {
-      cache: "no-store",
-    });
+    const search = params
+      ? new URLSearchParams(
+          Object.fromEntries(
+            Object.entries(params).filter(
+              (kv): kv is [string, string] => !!kv[1]
+            )
+          )
+        ).toString()
+      : "";
+    const url = search ? `${getBaseUrl()}/jobs?${search}` : `${getBaseUrl()}/jobs`;
+    const res = await fetch(url, { cache: "no-store" });
     if (!res.ok) {
       const err = await res.json().catch(() => ({ error: res.statusText }));
       return { error: (err as { error?: string }).error ?? res.statusText };
@@ -100,6 +109,141 @@ export async function fetchBrands(): Promise<
   } catch (e) {
     return {
       error: e instanceof Error ? e.message : "Failed to fetch brands",
+    };
+  }
+}
+
+// Brand Kits (DB) - new endpoints
+export interface BrandKit {
+  id: string;
+  name: string;
+  slug: string;
+  niche: string;
+  industry?: string | null;
+  icp?: Record<string, unknown> | null;
+  voice?: Record<string, unknown> | null;
+  visuals?: Record<string, unknown> | null;
+  cta_defaults?: Record<string, unknown> | null;
+  guardrails?: string[];
+  active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export async function fetchBrandKits(): Promise<
+  { data: BrandKit[] } | { error: string }
+> {
+  try {
+    const res = await fetch(`${getBaseUrl()}/brand-kits`, { cache: "no-store" });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: res.statusText }));
+      return { error: (err as { error?: string }).error ?? res.statusText };
+    }
+    const data = await res.json();
+    return { data: data as BrandKit[] };
+  } catch (e) {
+    return {
+      error: e instanceof Error ? e.message : "Failed to fetch brand kits",
+    };
+  }
+}
+
+export async function fetchBrandKit(
+  idOrSlug: string
+): Promise<{ data: BrandKit } | { error: string }> {
+  try {
+    const res = await fetch(`${getBaseUrl()}/brand-kits/${idOrSlug}`, {
+      cache: "no-store",
+    });
+    if (!res.ok) {
+      if (res.status === 404) return { error: "Brand kit not found" };
+      const err = await res.json().catch(() => ({ error: res.statusText }));
+      return { error: (err as { error?: string }).error ?? res.statusText };
+    }
+    const data = await res.json();
+    return { data: data as BrandKit };
+  } catch (e) {
+    return {
+      error: e instanceof Error ? e.message : "Failed to fetch brand kit",
+    };
+  }
+}
+
+export async function createBrandKit(body: Partial<BrandKit>): Promise<
+  { data: BrandKit } | { error: string }
+> {
+  try {
+    const res = await fetch(`${getBaseUrl()}/brand-kits`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      return { error: (json as { error?: string }).error ?? res.statusText };
+    }
+    return { data: json as BrandKit };
+  } catch (e) {
+    return {
+      error: e instanceof Error ? e.message : "Failed to create brand kit",
+    };
+  }
+}
+
+export async function updateBrandKit(
+  id: string,
+  body: Partial<BrandKit>
+): Promise<{ data: BrandKit } | { error: string }> {
+  try {
+    const res = await fetch(`${getBaseUrl()}/brand-kits/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      return { error: (json as { error?: string }).error ?? res.statusText };
+    }
+    return { data: json as BrandKit };
+  } catch (e) {
+    return {
+      error: e instanceof Error ? e.message : "Failed to update brand kit",
+    };
+  }
+}
+
+export async function deleteBrandKit(
+  id: string
+): Promise<{ data: null } | { error: string }> {
+  try {
+    const res = await fetch(`${getBaseUrl()}/brand-kits/${id}`, {
+      method: "DELETE",
+    });
+    if (!res.ok) {
+      const json = await res.json().catch(() => ({}));
+      return { error: (json as { error?: string }).error ?? res.statusText };
+    }
+    return { data: null };
+  } catch (e) {
+    return {
+      error: e instanceof Error ? e.message : "Failed to delete brand kit",
+    };
+  }
+}
+
+export async function fetchHealth(): Promise<
+  { data: { status: string; elevenlabs?: string } } | { error: string }
+> {
+  try {
+    const res = await fetch(`${getBaseUrl()}/health`, { cache: "no-store" });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      return { error: (data as { error?: string }).error ?? res.statusText };
+    }
+    return { data: data as { status: string; elevenlabs?: string } };
+  } catch (e) {
+    return {
+      error: e instanceof Error ? e.message : "Failed to fetch health",
     };
   }
 }
@@ -208,13 +352,17 @@ export async function fetchGeneration(
 
 export async function generateContent(
   brandId: string,
-  strategySelection: import("@/types/strategy").StrategySelection
+  strategySelection: import("@/types/strategy").StrategySelection,
+  options?: { funnel_stage?: string; content_intent?: string }
 ): Promise<{ data: import("@/types/generate").GenerateResponse } | { error: string }> {
   try {
+    const body: Record<string, unknown> = { brandId, strategySelection };
+    if (options?.funnel_stage) body.funnel_stage = options.funnel_stage;
+    if (options?.content_intent) body.content_intent = options.content_intent;
     const res = await fetch(`${getBaseUrl()}/generate-content`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ brandId, strategySelection }),
+      body: JSON.stringify(body),
     });
     const json = await res.json().catch(() => ({}));
     if (!res.ok) {

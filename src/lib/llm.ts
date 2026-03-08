@@ -12,6 +12,10 @@ export interface StrategySelection {
   directionLevel?: "template" | "director" | "cinematic";
   productCategory?: string;
   productType?: string;
+  /** Funnel stage: tof, mof, bof */
+  funnelStage?: string;
+  /** Content intent, e.g. tof_awareness, bof_lead_gen */
+  contentIntent?: string;
 }
 
 /** Creative Director Brief - full playbook for Director/Cinematic levels */
@@ -259,6 +263,25 @@ function buildStrategySection(strategy: StrategySelection): string[] {
   }
   if (ctx.contextNotes) {
     lines.push(`Context notes: ${ctx.contextNotes}`);
+  }
+  if (strategy.funnelStage || strategy.contentIntent) {
+    lines.push("");
+    lines.push("## Funnel Stage & Intent");
+    if (strategy.funnelStage) {
+      lines.push(
+        `Funnel stage: ${strategy.funnelStage} (tof=awareness/cold, mof=consideration/warm, bof=conversion/hot)`
+      );
+    }
+    if (strategy.contentIntent) {
+      lines.push(`Content intent: ${strategy.contentIntent}`);
+    }
+    lines.push("");
+    lines.push(
+      "Adjust the copy, hook, CTA urgency, and visual energy accordingly:"
+    );
+    lines.push("- TOF: softer hook, no hard sell, educate or entertain");
+    lines.push("- MOF: social proof focus, address objections");
+    lines.push("- BOF: urgency, clear CTA, outcome-focused");
   }
   return lines;
 }
@@ -572,6 +595,8 @@ export interface StoryboardInput {
   reelType: ReelType;
   customerProfileId?: string;
   ctaMode?: CtaMode;
+  funnelStage?: string;
+  contentIntent?: string;
 }
 
 export interface StoryboardResult {
@@ -592,8 +617,15 @@ export interface StoryboardResult {
 }
 
 function buildStoryboardPrompt(input: StoryboardInput): string {
-  const { brief, durationSeconds, customerProfileId, ctaMode } = input;
-  return buildViralStoryboardPrompt({ brief, durationSeconds, customerProfileId, ctaMode });
+  const { brief, durationSeconds, customerProfileId, ctaMode, funnelStage, contentIntent } = input;
+  return buildViralStoryboardPrompt({
+    brief,
+    durationSeconds,
+    customerProfileId,
+    ctaMode,
+    funnelStage,
+    contentIntent,
+  });
 }
 
 function enrichShotWithBrief(

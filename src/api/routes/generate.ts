@@ -105,18 +105,22 @@ router.get("/generations/:id", async (req: Request, res: Response) => {
 
 router.post("/generate-content", async (req: Request, res: Response) => {
   try {
-    const { brandId, strategySelection } = req.body;
+    const { brandId, strategySelection, funnel_stage, content_intent } = req.body;
     if (!brandId || !strategySelection) {
       res.status(400).json({ error: "brandId and strategySelection required" });
       return;
     }
-    // Pass full strategySelection (directionLevel, productCategory, productType, etc.)
-    const result = await generateStructuredContent(brandId, strategySelection);
+    const mergedStrategy = {
+      ...strategySelection,
+      ...(funnel_stage && { funnelStage: funnel_stage }),
+      ...(content_intent && { contentIntent: content_intent }),
+    };
+    const result = await generateStructuredContent(brandId, mergedStrategy);
     const generationId = crypto.randomUUID();
     const { error: insertError } = await supabase.from("generations").insert({
       id: generationId,
       brand_id: brandId,
-      strategy: strategySelection,
+      strategy: mergedStrategy,
       marketing_output: result.marketingOutput ?? null,
       creative_brief: result.creativeBrief ?? null,
       creative_director_brief: result.creativeDirectorBrief ?? null,
@@ -128,7 +132,7 @@ router.post("/generate-content", async (req: Request, res: Response) => {
       // Still return the result; persistence is best-effort
     }
     // Return full result: canonical Generation with generationId, strategy, outputs, tokenUsage
-    res.json({ ...result, generationId, strategy: strategySelection });
+    res.json({ ...result, generationId, strategy: mergedStrategy });
   } catch (err) {
     console.error("Generate content error:", err);
     const msg = err instanceof Error ? err.message : "Internal server error";
@@ -185,6 +189,8 @@ router.post("/generate", validateJobBody, async (req: Request, res: Response) =>
       brief_key: briefKey,
     };
     const generationId = (payload as { generation_id?: string }).generation_id ?? null;
+    const funnelStage = (payload as { funnel_stage?: string }).funnel_stage ?? null;
+    const contentIntent = (payload as { content_intent?: string }).content_intent ?? null;
 
     const { data: job, error: insertError } = await supabase
       .from("jobs")
@@ -196,6 +202,8 @@ router.post("/generate", validateJobBody, async (req: Request, res: Response) =>
         model: selected.key,
         payload: enrichedPayload,
         ...(generationId && { generation_id: generationId }),
+        ...(funnelStage && { funnel_stage: funnelStage }),
+        ...(contentIntent && { content_intent: contentIntent }),
       })
       .select("id")
       .single();
@@ -273,7 +281,7 @@ router.post("/compact-brief", async (req: Request, res: Response) => {
 
 router.post("/storyboard-from-brief", async (req: Request, res: Response) => {
   try {
-    const { brief, durationSeconds, shotCount, reelType, customerProfileId, ctaMode } = req.body;
+    const { brief, durationSeconds, shotCount, reelType, customerProfileId, ctaMode, funnel_stage, content_intent } = req.body;
     
     if (!brief || !durationSeconds || !shotCount || !reelType) {
       res.status(400).json({ 
@@ -289,6 +297,8 @@ router.post("/storyboard-from-brief", async (req: Request, res: Response) => {
       reelType: reelType as ReelType,
       customerProfileId,
       ctaMode,
+      funnelStage: funnel_stage,
+      contentIntent: content_intent,
     });
     
     res.json({

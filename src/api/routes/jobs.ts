@@ -3,12 +3,20 @@ import { supabase } from "../../lib/supabase.js";
 
 const router = Router();
 
-router.get("/", async (_req: Request, res: Response) => {
+router.get("/", async (req: Request, res: Response) => {
   try {
-    const { data: jobsData, error } = await supabase
+    const funnelStage = req.query.funnel_stage as string | undefined;
+    const contentIntent = req.query.content_intent as string | undefined;
+
+    let query = supabase
       .from("jobs")
-      .select("id, brand, format, objective, model, status, created_at, payload")
+      .select("id, brand, format, objective, model, status, funnel_stage, content_intent, created_at, payload")
       .order("created_at", { ascending: false });
+
+    if (funnelStage) query = query.eq("funnel_stage", funnelStage);
+    if (contentIntent) query = query.eq("content_intent", contentIntent);
+
+    const { data: jobsData, error } = await query;
 
     if (error) {
       console.error("GET /jobs error:", error);
@@ -79,6 +87,8 @@ router.get("/:id", async (req: Request, res: Response) => {
       format: job.format,
       objective: job.objective,
       model: job.model,
+      funnel_stage: job.funnel_stage ?? null,
+      content_intent: job.content_intent ?? null,
       status: job.status,
       cost: job.cost,
       error_message: job.error_message,

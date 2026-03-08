@@ -71,7 +71,7 @@ export async function generateImage(
     ...(options?.numInferenceSteps && { num_inference_steps: options.numInferenceSteps }),
   };
 
-  const output = await replicate.run("black-forest-labs/flux-dev" as `${string}/${string}`, { input });
+  const output = await replicate.run("black-forest-labs/flux-1.1-pro" as `${string}/${string}`, { input });
   const url = extractUrl(output);
   
   return { url, cost: 0.03 };
@@ -132,7 +132,8 @@ export async function generateVideoFromPrompt(
 }
 
 /**
- * Direct text-to-video using minimax (legacy, less controllable).
+ * Direct text-to-video. Pass providerModelId: veo-3-fast (default/broll) or kling-video-3.0 (ugc).
+ * Duration is clamped to max 4 seconds per shot.
  */
 export async function runReplicate(
   providerModelId: string,
@@ -143,7 +144,7 @@ export async function runReplicate(
 
   const input: Record<string, unknown> = {
     prompt,
-    ...(options?.lengthSeconds && { duration: Math.min(options.lengthSeconds, 6) }),
+    ...(options?.lengthSeconds && { duration: Math.min(options.lengthSeconds, 4) }),
     ...(options?.aspectRatio && { aspect_ratio: options.aspectRatio }),
   };
 
