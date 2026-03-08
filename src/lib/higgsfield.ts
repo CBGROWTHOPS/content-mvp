@@ -42,6 +42,12 @@ async function getBearerToken(): Promise<string> {
     throw new HiggsFieldError("HIGGSFIELD_API_KEY is not set");
   }
 
+  console.log("Higgsfield auth request:", {
+    url: "https://cloud.higgsfield.ai/api/v1/auth",
+    keyLength: apiKey.length,
+    keyPrefix: apiKey.substring(0, 8),
+  });
+
   const res = await fetch(`${HIGGSFIELD_BASE}/auth`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -49,12 +55,14 @@ async function getBearerToken(): Promise<string> {
     signal: AbortSignal.timeout(15000),
   });
 
+  const responseText = await res.text();
+  console.log("Higgsfield auth response:", res.status, responseText);
+
   if (!res.ok) {
-    const text = await res.text();
-    throw new HiggsFieldError(`Auth failed: ${res.status} ${text}`);
+    throw new HiggsFieldError(`Auth failed: ${res.status} ${responseText}`);
   }
 
-  const data = (await res.json()) as { token?: string; access_token?: string; bearer?: string };
+  const data = JSON.parse(responseText) as { token?: string; access_token?: string; bearer?: string };
   const token = data.token ?? data.access_token ?? data.bearer;
   if (!token || typeof token !== "string") {
     throw new HiggsFieldError("Auth response missing token");
