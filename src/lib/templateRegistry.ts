@@ -3,7 +3,7 @@ import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 import { pathToFileURL } from "url";
 import type { BrandProfile } from "../core/types.js";
-import { loadBrand } from "./brandRegistry.js";
+import { loadBrandForJob } from "./brandRegistry.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -71,6 +71,7 @@ export async function getTemplate(
 
 /**
  * Run template for a kit format. Falls back to core generator if no brand template.
+ * Uses loadBrandForJob so bdn/gth/rfj load from DB; others fall back to file.
  */
 export async function runTemplate(
   brandKey: string,
@@ -79,12 +80,12 @@ export async function runTemplate(
   variables: Record<string, string | number | boolean>,
   options?: Record<string, unknown>
 ): Promise<string> {
+  const profile = await loadBrandForJob(brandKey);
   const templateFn = await getTemplate(brandKey, format, hookType);
   if (templateFn) {
-    const profile = loadBrand(brandKey);
     return templateFn(profile, variables, options);
   }
-  return runFallbackTemplate(format, hookType, variables, brandKey, options);
+  return runFallbackTemplate(format, hookType, variables, profile, options);
 }
 
 /**
@@ -94,10 +95,9 @@ function runFallbackTemplate(
   format: string,
   hookType: string | undefined,
   variables: Record<string, string | number | boolean>,
-  brandKey: string,
+  profile: BrandProfile,
   options?: Record<string, unknown>
 ): string {
-  const profile = loadBrand(brandKey);
   const headline = (variables.headline as string) ?? profile.positioning ?? "Premium quality.";
   const cta = (variables.cta as string) ?? profile.primary_cta ?? "Learn more";
 

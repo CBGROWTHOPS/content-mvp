@@ -1,1 +1,1 @@
-export { loadBrand } from "./brandRegistry.js";
+export { loadBrand, loadBrandForJob, getBrandKitFromDB } from "./brandRegistry.js";

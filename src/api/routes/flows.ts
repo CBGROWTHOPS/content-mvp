@@ -68,8 +68,8 @@ router.post("/image-ad-pack", async (req: Request, res: Response) => {
       res.status(400).json({ error: "brandId and strategyPresetId required" });
       return;
     }
-    const { loadBrand } = await import("../../lib/brandRegistry.js");
-    const brand = loadBrand(brandId) as { strategy_presets?: Array<{ id: string; strategy: Record<string, unknown> }> };
+    const { loadBrandForJob } = await import("../../lib/brandRegistry.js");
+    const brand = await loadBrandForJob(brandId) as { strategy_presets?: Array<{ id: string; strategy: Record<string, unknown> }> };
     const strategy = resolveStrategy(strategyPresetId, brand?.strategy_presets, DEFAULT_PRESETS) as Record<string, unknown>;
     const strategySelection: StrategySelection = {
       campaignObjective: String(strategy.campaignObjective ?? "lead_generation"),
@@ -128,8 +128,8 @@ router.post("/reel-campaign", async (req: Request, res: Response) => {
       res.status(400).json({ error: "brandId and strategyPresetId required" });
       return;
     }
-    const { loadBrand } = await import("../../lib/brandRegistry.js");
-    const brand = loadBrand(brandId) as { strategy_presets?: Array<{ id: string; strategy: Record<string, unknown> }> };
+    const { loadBrandForJob } = await import("../../lib/brandRegistry.js");
+    const brand = await loadBrandForJob(brandId) as { strategy_presets?: Array<{ id: string; strategy: Record<string, unknown> }> };
     const strategy = resolveStrategy(strategyPresetId, brand?.strategy_presets, DEFAULT_PRESETS) as Record<string, unknown>;
     const dirLevel = (directionLevel ?? "director") as "template" | "director" | "cinematic";
     const strategySelection: StrategySelection = {
@@ -191,8 +191,8 @@ router.post("/content-batch", async (req: Request, res: Response) => {
       return;
     }
     const count = Math.min(Number(contentCount) || 1, 10);
-    const { loadBrand } = await import("../../lib/brandRegistry.js");
-    const brand = loadBrand(brandId) as { strategy_presets?: Array<{ id: string; strategy: Record<string, unknown> }> };
+    const { loadBrandForJob } = await import("../../lib/brandRegistry.js");
+    const brand = await loadBrandForJob(brandId) as { strategy_presets?: Array<{ id: string; strategy: Record<string, unknown> }> };
     const strategy = resolveStrategy(strategyPresetId, brand?.strategy_presets, DEFAULT_PRESETS) as Record<string, unknown>;
     const strategySelection: StrategySelection = {
       campaignObjective: String(strategy.campaignObjective ?? "lead_generation"),
@@ -236,8 +236,8 @@ router.post("/landing-hero", async (req: Request, res: Response) => {
       res.status(400).json({ error: "brandId and strategyPresetId required" });
       return;
     }
-    const { loadBrand } = await import("../../lib/brandRegistry.js");
-    const brand = loadBrand(brandId) as { strategy_presets?: Array<{ id: string; strategy: Record<string, unknown> }> };
+    const { loadBrandForJob } = await import("../../lib/brandRegistry.js");
+    const brand = await loadBrandForJob(brandId) as { strategy_presets?: Array<{ id: string; strategy: Record<string, unknown> }> };
     const strategy = resolveStrategy(strategyPresetId, brand?.strategy_presets, DEFAULT_PRESETS) as Record<string, unknown>;
     const strategySelection: StrategySelection = {
       campaignObjective: String(strategy.campaignObjective ?? "lead_generation"),

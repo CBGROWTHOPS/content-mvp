@@ -11,7 +11,7 @@ import {
   enrichBlueprintWithBrief,
   type ReelType,
 } from "../../lib/llm.js";
-import { loadBrand } from "../../lib/brandRegistry.js";
+import { loadBrandForJob } from "../../lib/brandRegistry.js";
 import { estimateTokenCount } from "../../lib/tokenEstimate.js";
 import { getOrGenerateBrief, computeBriefKey, getCachedBrief } from "../../lib/briefCache.js";
 import { listPresets, getPresetBrief } from "../../lib/briefPresets.js";
@@ -19,7 +19,7 @@ import type { BriefInput } from "../../lib/compactBrief.js";
 
 const router = Router();
 
-router.get("/generate-content/estimate", (req: Request, res: Response) => {
+router.get("/generate-content/estimate", async (req: Request, res: Response) => {
   try {
     const brandId = req.query.brandId as string | undefined;
     const strategyParam = req.query.strategySelection;
@@ -30,7 +30,7 @@ router.get("/generate-content/estimate", (req: Request, res: Response) => {
       res.status(400).json({ error: "brandId required" });
       return;
     }
-    const brand = loadBrand(brandId);
+    const brand = await loadBrandForJob(brandId);
     const dir = raw?.directionLevel as "template" | "director" | "cinematic" | undefined;
     const directionLevel = (dir === "director" || dir === "cinematic" ? dir : "template") as "template" | "director" | "cinematic";
     const strategy = raw

@@ -1,5 +1,5 @@
 import OpenAI from "openai";
-import { loadBrand } from "./brandRegistry.js";
+import { loadBrandForJob } from "./brandRegistry.js";
 import type { BrandKit } from "../core/types.js";
 
 export interface StrategySelection {
@@ -196,21 +196,22 @@ function buildBrandKitSection(brand: BrandKit, strategy: StrategySelection): str
     "",
     "## Brand Kit",
     `Brand: ${brand.display_name ?? brand.brand_key}`,
-    `Positioning: ${brand.positioning ?? "Premium quality."}`,
+    brand.positioning ? `Niche: ${brand.positioning}` : "",
+    brand.positioning ? `Positioning: ${brand.positioning}` : "Positioning: Premium quality.",
     brand.target_icp?.audiences?.length
-      ? `Target audiences: ${brand.target_icp.audiences.join(", ")}`
+      ? `Target audience: ${brand.target_icp.audiences.join(", ")}`
       : "",
     brand.target_icp?.geographic_context
       ? `Geography: ${brand.target_icp.geographic_context}`
       : "",
-    brand.voice_profile
-      ? `Voice: ${brand.voice_profile.tone_must_be?.join(", ")}. Never: ${brand.voice_profile.tone_never?.join(", ")}`
+    brand.voice_profile?.tone_must_be?.length
+      ? `Voice/tone: ${brand.voice_profile.tone_must_be.join(", ")}${brand.voice_profile.tone_never?.length ? `. Never: ${brand.voice_profile.tone_never.join(", ")}` : ""}`
       : "",
     brand.voice_rules?.length
       ? `Voice rules: ${brand.voice_rules.join(". ")}`
       : "",
     brand.forbidden_language?.length
-      ? `Never use: ${brand.forbidden_language.join(", ")}`
+      ? `Guardrails: ${brand.forbidden_language.join(", ")}`
       : "",
     brand.primary_cta ? `Primary CTA: ${brand.primary_cta}` : "",
     brand.secondary_cta ? `Secondary CTA: ${brand.secondary_cta}` : "",
@@ -522,7 +523,7 @@ export async function generateStructuredContent(
     throw new Error("OPENAI_API_KEY is not set");
   }
 
-  const brand = loadBrand(brandId) as BrandKit;
+  const brand = await loadBrandForJob(brandId);
   const prompt = buildPrompt(brand, strategySelection);
   const directionLevel = strategySelection.directionLevel ?? "template";
 
