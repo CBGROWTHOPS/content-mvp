@@ -55,23 +55,32 @@ export function EndFrame({
         }}
       />
 
-      {/* Main headline */}
-      <AnimatedText
-        text={headline}
-        startFrame={startFrame}
-        delay={20}
-        animation="slideUp"
+      {/* Main headline - dark bg, min 48px, always readable */}
+      <div
         style={{
-          fontSize: 48,
-          fontFamily: "Georgia, serif",
-          fontWeight: 400,
-          color: "#ffffff",
-          textAlign: "center",
-          lineHeight: 1.2,
-          maxWidth: 800,
+          backgroundColor: "rgba(0,0,0,0.6)",
+          borderRadius: 8,
+          padding: "12px 16px",
           marginBottom: 40,
+          maxWidth: 800,
         }}
-      />
+      >
+        <AnimatedText
+          text={headline}
+          startFrame={startFrame}
+          delay={20}
+          animation="slideUp"
+          style={{
+            fontSize: 52,
+            fontWeight: 800,
+            color: "#FFFFFF",
+            textAlign: "center",
+            lineHeight: 1.2,
+            textShadow: "0 2px 8px rgba(0,0,0,0.8)",
+            fontFamily: "Inter, sans-serif",
+          }}
+        />
+      </div>
 
       {/* CTA button */}
       <div

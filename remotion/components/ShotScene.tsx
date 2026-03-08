@@ -1,5 +1,5 @@
-import React from "react";
-import { AbsoluteFill, useCurrentFrame, useVideoConfig, interpolate, Video, OffthreadVideo } from "remotion";
+import React, { useState } from "react";
+import { AbsoluteFill, useCurrentFrame, useVideoConfig, interpolate, OffthreadVideo } from "remotion";
 import { AnimatedText } from "./AnimatedText";
 import type { ReelBlueprintShot } from "../ReelComposition";
 
@@ -56,6 +56,8 @@ export function ShotScene({ shot, shotIndex, isLastShot, videoUrl }: ShotScenePr
       : 1;
 
   const useVideo = shot.visualSource === "generated_video" && videoUrl;
+  const [videoError, setVideoError] = useState(false);
+  const showVideo = useVideo && !videoError;
 
   return (
     <AbsoluteFill
@@ -65,24 +67,17 @@ export function ShotScene({ shot, shotIndex, isLastShot, videoUrl }: ShotScenePr
         transform: `scale(${zoomScale})`,
       }}
     >
-      {/* Video background if available */}
-      {useVideo && (
-        <AbsoluteFill>
-          <OffthreadVideo
-            src={videoUrl}
-            style={{
-              width: "100%",
-              height: "100%",
-              objectFit: "cover",
-            }}
-            startFrom={0}
-            muted
-          />
-        </AbsoluteFill>
+      {/* Solid fallback when no video, null videoUrl, or video failed to load */}
+      {!showVideo && (
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            background: bgColor,
+          }}
+        />
       )}
-
-      {/* Solid background fallback with warm neutral overlay */}
-      {!useVideo && (
+      {!showVideo && (
         <div
           style={{
             position: "absolute",
@@ -93,20 +88,38 @@ export function ShotScene({ shot, shotIndex, isLastShot, videoUrl }: ShotScenePr
         />
       )}
 
-      {/* Primary on-screen text overlay - falls back to sceneDescription if no explicit text */}
+      {/* Video background if available and loaded */}
+      {showVideo && (
+        <AbsoluteFill>
+          <OffthreadVideo
+            src={videoUrl!}
+            style={{
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+            }}
+            startFrom={0}
+            muted
+            onError={() => setVideoError(true)}
+          />
+        </AbsoluteFill>
+      )}
+
+      {/* Primary on-screen text overlay - dark bg, readable text, min 48px */}
       {(() => {
         const displayText = shot.onScreenText?.text || shot.sceneDescription;
         if (!displayText) return null;
-        
+        const fontSize = Math.max(48, shot.shotType === "close" ? 52 : displayText.length > 50 ? 48 : 52);
         return (
           <div
             style={{
               position: "absolute",
-              top: "50%",
-              left: "50%",
-              transform: "translate(-50%, -50%)",
-              width: "85%",
-              textAlign: "center",
+              bottom: 80,
+              left: 24,
+              right: 24,
+              backgroundColor: "rgba(0,0,0,0.6)",
+              borderRadius: 8,
+              padding: "12px 16px",
             }}
           >
             <AnimatedText
@@ -115,12 +128,12 @@ export function ShotScene({ shot, shotIndex, isLastShot, videoUrl }: ShotScenePr
               delay={8}
               animation="slideUp"
               style={{
-                fontSize: shot.shotType === "close" ? 42 : displayText.length > 50 ? 28 : 36,
-                fontFamily: "Georgia, serif",
-                fontWeight: 400,
-                color: "#ffffff",
-                textShadow: "0 4px 30px rgba(0,0,0,0.5)",
-                lineHeight: 1.35,
+                fontSize,
+                fontWeight: 800,
+                color: "#FFFFFF",
+                lineHeight: 1.2,
+                textShadow: "0 2px 8px rgba(0,0,0,0.8)",
+                fontFamily: "Inter, sans-serif",
               }}
             />
           </div>

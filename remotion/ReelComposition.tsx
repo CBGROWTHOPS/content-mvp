@@ -1,5 +1,5 @@
-import React from "react";
-import { AbsoluteFill, Audio } from "remotion";
+import React, { useEffect, useRef } from "react";
+import { AbsoluteFill, Audio, prefetch, delayRender, continueRender } from "remotion";
 import { ShotScene } from "./components/ShotScene";
 import { EndFrame } from "./components/EndFrame";
 
@@ -78,6 +78,25 @@ interface ReelCompositionProps {
 
 export function ReelComposition({ blueprint, assets }: ReelCompositionProps) {
   const { shots, durationSeconds, fps, endFrame } = blueprint;
+  // Prefetch all video URLs before first frame to avoid blank screens
+  const handleRef = useRef<number | null>(null);
+  useEffect(() => {
+    const urls = shots
+      .filter((s) => s.visualSource === "generated_video" && assets?.videosByShot?.[s.shotId])
+      .map((s) => assets!.videosByShot![s.shotId]!);
+    if (urls.length === 0) return;
+    handleRef.current = delayRender("Prefetching video assets");
+    Promise.all(urls.map((url) => prefetch(url)))
+      .then(() => {
+        if (handleRef.current !== null) continueRender(handleRef.current);
+      })
+      .catch(() => {
+        if (handleRef.current !== null) continueRender(handleRef.current);
+      });
+    return () => {
+      if (handleRef.current !== null) continueRender(handleRef.current);
+    };
+  }, [shots, assets?.videosByShot]);
   const totalFrames = Math.ceil(durationSeconds * fps);
 
   // Calculate end frame timing (last 2 seconds or after last shot)

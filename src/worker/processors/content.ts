@@ -29,17 +29,19 @@ import type { QueueJobPayload } from "../../types/index.js";
 
 const BLUEPRINT_FORMATS = ["reel_kit", "wide_video_kit"] as const;
 
-type ProgressStep = 
-  | "queued" 
-  | "processing" 
+type ProgressStep =
+  | "queued"
+  | "processing"
   | "validating_contract"
-  | "generating_voiceover" 
-  | "generating_music" 
+  | "generating_voiceover"
+  | "generating_music"
   | "generating_images"
-  | "generating_video" 
+  | "uploading_images"
+  | "generating_video"
+  | "uploading_clips"
   | "validating_assets"
-  | "rendering" 
-  | "uploading" 
+  | "rendering"
+  | "uploading"
   | "completed";
 
 type VideoGenerationMode = "image_first" | "direct_text_to_video";
@@ -116,7 +118,9 @@ async function generateReelAssets(
   blueprint: ExtendedBlueprint,
   jobId: string,
   brandKey: string,
-  brief?: CompactCreativeBrief
+  brief?: CompactCreativeBrief,
+  funnelStage?: string | null,
+  contentIntent?: string | null
 ): Promise<{ assets: ReelAssetsInput; totalCost: number; providerLog: { images?: Record<string, string>; videos?: Record<string, string> } }> {
   const rules = getRulesFromBrief(brief);
   const reelType = blueprint.reelType ?? "voiceover";
@@ -339,7 +343,9 @@ async function generateReelAssets(
           }
         }
       }
-      
+
+      await updateProgress(jobId, "uploading_images");
+
       // Phase 2: Animate images to video
       await updateProgress(jobId, "generating_video");
       console.log(`VIDEO_GEN start images=${Object.keys(imagesByShot).length}`);
@@ -404,6 +410,8 @@ async function generateReelAssets(
           }
         }
       }
+
+      await updateProgress(jobId, "uploading_clips");
     } else {
       // Direct text-to-video: Higgsfield first, Replicate fallback
       await updateProgress(jobId, "generating_video");
@@ -511,8 +519,10 @@ async function generateReelAssets(
           }
         }
       }
+
+      await updateProgress(jobId, "uploading_clips");
     }
-    
+
     if (Object.keys(videosByShot).length > 0) {
       assets.videosByShot = videosByShot;
     }
@@ -588,7 +598,9 @@ export async function processContentJob(job: Job<QueueJobPayload, void, string>)
           blueprint,
           jobId,
           payload.brand_key,
-          brief
+          brief,
+          payload.funnel_stage ?? null,
+          payload.content_intent ?? null
         );
         cost = assetCost > 0 ? assetCost : null;
         providerLog = pl;

@@ -13,9 +13,12 @@ const PROGRESS_STEPS = [
   { key: "processing", label: "Starting", description: "Job picked up" },
   { key: "generating_voiceover", label: "Voiceover", description: "Generating narration with ElevenLabs" },
   { key: "generating_music", label: "Music", description: "Creating background track" },
-  { key: "generating_video", label: "Video", description: "Generating video clips" },
+  { key: "generating_images", label: "Images", description: "Generating shot images" },
+  { key: "uploading_images", label: "Uploading Images", description: "Saving images to storage" },
+  { key: "generating_video", label: "Video Clips", description: "Generating video clips" },
+  { key: "uploading_clips", label: "Uploading Clips", description: "Saving clips to storage" },
   { key: "rendering", label: "Rendering", description: "Compositing with Remotion" },
-  { key: "uploading", label: "Uploading", description: "Saving to storage" },
+  { key: "uploading", label: "Uploading", description: "Saving final video" },
   { key: "completed", label: "Complete", description: "Ready to download" },
 ];
 

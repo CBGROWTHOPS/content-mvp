@@ -1,7 +1,31 @@
 /**
  * Music library for selecting background tracks based on mood and tempo.
  * Supports both pre-licensed tracks and AI-generated music via MusicGen.
+ * TODO: replace with licensed tracks from Epidemic Sound or Artlist.
  */
+
+/** Energy level derived from funnel stage and content intent */
+export type MusicEnergy = "high" | "medium" | "low";
+
+/** Map funnelStage + contentIntent to energy, then to mood/tempo */
+export function getMusicSelectionFromFunnel(
+  funnelStage?: string | null,
+  contentIntent?: string | null
+): { mood: string; tempo: "slow" | "medium" | "upbeat" } {
+  const key = `${funnelStage ?? ""}_${contentIntent ?? ""}`;
+  if (
+    /bof_lead_gen|bof_conversion|bof_urgency/.test(key)
+  ) {
+    return { mood: "upbeat", tempo: "upbeat" };
+  }
+  if (/tof_entertainment|tof_awareness|tof/.test(key)) {
+    return { mood: "upbeat", tempo: "medium" };
+  }
+  if (/mof_consideration|mof_social_proof|mof/.test(key)) {
+    return { mood: "warm", tempo: "slow" };
+  }
+  return { mood: "warm", tempo: "medium" };
+}
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -114,9 +138,9 @@ export function selectTrack(selection: MusicSelection): {
   if (candidates.length === 0) {
     return null;
   }
-  
-  // Pick a random track from candidates
-  const track = candidates[Math.floor(Math.random() * candidates.length)];
+
+  // Pick best track: prefer matching tempo, then first (least bad) per energy tier
+  const track = candidates[0];
   const filePath = path.join(getMusicDir(), track.filename);
   
   return { track, filePath };
@@ -287,17 +311,35 @@ export async function generateMusicToFile(
 
 /**
  * Get music for a reel - tries library first, falls back to AI generation.
+ * When funnelStage/contentIntent are provided, overrides mood/tempo by energy level.
  */
 export async function getMusicForReel(
-  selection: MusicSelection & { generateIfMissing?: boolean; brandContext?: string }
+  selection: MusicSelection & {
+    generateIfMissing?: boolean;
+    brandContext?: string;
+    funnelStage?: string | null;
+    contentIntent?: string | null;
+  }
 ): Promise<{
   source: "library" | "generated";
   audioUrl?: string;
   filePath?: string;
   cost: number;
 }> {
+  // Override selection from funnel energy when provided
+  const funnelSelection = getMusicSelectionFromFunnel(
+    selection.funnelStage,
+    selection.contentIntent
+  );
+  const effectiveSelection: MusicSelection = {
+    mood: selection.funnelStage ? funnelSelection.mood : selection.mood,
+    tempo: selection.funnelStage ? funnelSelection.tempo : selection.tempo,
+    genre: selection.genre,
+    minDurationSeconds: selection.minDurationSeconds,
+  };
+
   // First try the pre-licensed library
-  const libraryTrack = selectTrack(selection);
+  const libraryTrack = selectTrack(effectiveSelection);
   
   if (libraryTrack && trackExists(libraryTrack.track.id)) {
     return {
@@ -311,10 +353,10 @@ export async function getMusicForReel(
   if (selection.generateIfMissing !== false) {
     console.log("No library track found, generating with MusicGen...");
     const result = await generateMusic({
-      mood: selection.mood,
-      tempo: selection.tempo,
-      genre: selection.genre,
-      durationSeconds: selection.minDurationSeconds,
+      mood: effectiveSelection.mood,
+      tempo: effectiveSelection.tempo,
+      genre: effectiveSelection.genre,
+      durationSeconds: effectiveSelection.minDurationSeconds,
       brandContext: selection.brandContext,
     });
     
