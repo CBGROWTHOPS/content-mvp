@@ -117,7 +117,7 @@ async function generateReelAssets(
   jobId: string,
   brandKey: string,
   brief?: CompactCreativeBrief
-): Promise<{ assets: ReelAssetsInput; totalCost: number }> {
+): Promise<{ assets: ReelAssetsInput; totalCost: number; providerLog: { images?: Record<string, string>; videos?: Record<string, string> } }> {
   const rules = getRulesFromBrief(brief);
   const reelType = blueprint.reelType ?? "voiceover";
   
@@ -173,6 +173,7 @@ async function generateReelAssets(
   
   const assets: ReelAssetsInput = {};
   let totalCost = 0;
+  const providerLog: { images: Record<string, string>; videos: Record<string, string> } = { images: {}, videos: {} };
   const tmpDir = path.join(os.tmpdir(), `reel-assets-${jobId}`);
   await fs.mkdir(tmpDir, { recursive: true });
 
@@ -308,6 +309,7 @@ async function generateReelAssets(
               });
             }
             console.log(`IMAGE_GEN ${shot.shotId} provider=${imageProvider}`);
+            providerLog.images[shot.shotId] = imageProvider;
             
             const imageResp = await fetch(imageResult.url);
             if (!imageResp.ok) throw new Error(`image_fetch_failed:${imageResp.status}`);
@@ -391,6 +393,7 @@ async function generateReelAssets(
             const { data: videoUrlData } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(videoStoragePath);
             
             videosByShot[shot.shotId] = videoUrlData.publicUrl;
+            providerLog.videos[shot.shotId] = "replicate_image_to_video";
             totalCost += videoResult.cost ?? 0;
             break;
           } catch (err) {
@@ -456,6 +459,7 @@ async function generateReelAssets(
               cost = repResult.cost ?? null;
             }
             console.log(`VIDEO_GEN ${shot.shotId} provider=${videoProvider}`);
+            providerLog.videos[shot.shotId] = videoProvider;
             
             const videoResp = await fetch(url);
             if (!videoResp.ok) throw new Error(`fetch_failed:${videoResp.status}`);
@@ -517,7 +521,7 @@ async function generateReelAssets(
   // Cleanup temp dir
   await fs.rm(tmpDir, { recursive: true, force: true }).catch(() => {});
 
-  return { assets, totalCost };
+  return { assets, totalCost, providerLog };
 }
 
 export async function processContentJob(job: Job<QueueJobPayload, void, string>): Promise<void> {
@@ -570,23 +574,24 @@ export async function processContentJob(job: Job<QueueJobPayload, void, string>)
       BLUEPRINT_FORMATS.includes(payload.format as (typeof BLUEPRINT_FORMATS)[number]);
 
     let usedRemotion = false;
+    let providerLog: { images?: Record<string, string>; videos?: Record<string, string> } | { generative?: string } | null = null;
     if (useRemotion) {
       const blueprint = gen!.reel_blueprint as ExtendedBlueprint;
       // Prefer brief from payload (preset/cache), fall back to generation record
       const brief = (payload as { compact_brief?: CompactCreativeBrief }).compact_brief 
         ?? gen!.compact_brief 
         ?? undefined;
-      const briefKey = (payload as { brief_key?: string }).brief_key;
       const tmpPath = path.join(os.tmpdir(), `remotion-${jobId}.mp4`);
       try {
         // Generate audio/video assets based on reel type with validation
-        const { assets, totalCost: assetCost } = await generateReelAssets(
+        const { assets, totalCost: assetCost, providerLog: pl } = await generateReelAssets(
           blueprint,
           jobId,
           payload.brand_key,
           brief
         );
         cost = assetCost > 0 ? assetCost : null;
+        providerLog = pl;
         
         // Render with assets (ensure fps has a default)
         await updateProgress(jobId, "rendering");
@@ -606,6 +611,7 @@ export async function processContentJob(job: Job<QueueJobPayload, void, string>)
     
     if (!usedRemotion) {
       // Generative path: prompt → Replicate → clip
+      providerLog = { generative: "replicate" };
       const prompt = await buildPrompt(enrichedPayload as QueueJobPayload["payload"]);
       const { url: replicateUrl, cost: c } = await runReplicate(
         payload.provider_model_id,
@@ -665,6 +671,7 @@ export async function processContentJob(job: Job<QueueJobPayload, void, string>)
         status: "completed",
         progress_step: "completed",
         cost: cost ?? null,
+        ...(providerLog && { provider_log: providerLog }),
         updated_at: new Date().toISOString(),
       })
       .eq("id", jobId);

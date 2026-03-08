@@ -10,6 +10,11 @@ const POLL_INTERVAL_MS = 3000;
 
 let cachedBearerToken: string | null = null;
 
+/** Clear cached token. Call on 401 to force refresh on next request. */
+export function clearCachedHiggsfieldToken(): void {
+  cachedBearerToken = null;
+}
+
 export class HiggsFieldError extends Error {
   constructor(message: string) {
     super(message);
@@ -60,7 +65,7 @@ async function getBearerToken(): Promise<string> {
 }
 
 async function pollJobUntilComplete(jobId: string): Promise<HiggsfieldResult> {
-  const token = await getBearerToken();
+  let token = await getBearerToken();
 
   for (;;) {
     const res = await fetch(`${HIGGSFIELD_BASE}/jobs/${jobId}`, {
@@ -68,6 +73,11 @@ async function pollJobUntilComplete(jobId: string): Promise<HiggsfieldResult> {
       signal: AbortSignal.timeout(15000),
     });
 
+    if (res.status === 401) {
+      clearCachedHiggsfieldToken();
+      token = await getBearerToken();
+      continue;
+    }
     if (!res.ok) {
       const text = await res.text();
       throw new HiggsFieldError(`Job status failed: ${res.status} ${text}`);
@@ -121,7 +131,7 @@ async function submitGenerate(
     duration,
   };
 
-  const res = await fetch(`${HIGGSFIELD_BASE}/generate`, {
+  let res = await fetch(`${HIGGSFIELD_BASE}/generate`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -131,6 +141,19 @@ async function submitGenerate(
     signal: AbortSignal.timeout(30000),
   });
 
+  if (res.status === 401) {
+    clearCachedHiggsfieldToken();
+    const newToken = await getBearerToken();
+    res = await fetch(`${HIGGSFIELD_BASE}/generate`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${newToken}`,
+      },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(30000),
+    });
+  }
   if (!res.ok) {
     const text = await res.text();
     throw new HiggsFieldError(`Generate failed: ${res.status} ${text}`);
