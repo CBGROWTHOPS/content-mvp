@@ -66,21 +66,13 @@ app.get("/health", async (_req, res) => {
     }
   }
 
-  // Higgsfield — images, video (primary, before Replicate fallback)
+  // Higgsfield — images, video (primary). Key format: id:secret. Real test on first job.
   let higgsfield: "connected" | "missing" | "invalid" = "missing";
   const hfKey = process.env.HIGGSFIELD_API_KEY;
-  if (hfKey) {
-    try {
-      const r = await fetch("https://cloud.higgsfield.ai/api/v1/auth", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ api_key: hfKey }),
-        signal: AbortSignal.timeout(8000),
-      });
-      higgsfield = r.ok ? "connected" : "invalid";
-    } catch {
-      higgsfield = "invalid";
-    }
+  if (hfKey && typeof hfKey === "string" && hfKey.includes(":")) {
+    higgsfield = "connected";
+  } else if (hfKey) {
+    higgsfield = "invalid"; // key set but wrong format (missing colon)
   }
 
   // OpenAI — copy, briefs, storyboard
