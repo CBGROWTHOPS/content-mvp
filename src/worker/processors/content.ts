@@ -362,10 +362,33 @@ async function generateReelAssets(
         
         for (let attempt = 1; attempt <= maxRetries; attempt++) {
           try {
-            const videoResult = await imageToVideo(imageUrl, {
-              motionBucketId: 127,
-              fps: 6,
-            });
+            const shotDuration = Math.min(4, shot.timeEnd - shot.timeStart);
+            const prompt = shot.videoPrompt ?? shot.sceneDescription ?? "Animate the image with subtle motion.";
+            let videoResult: { url: string; cost?: number | null };
+            let videoProvider: "higgsfield" | "replicate_image_to_video" = "replicate_image_to_video";
+
+            if (isHiggsfieldAvailable()) {
+              try {
+                const hf = await higgsfieldGenerateVideo(prompt, {
+                  imageUrl,
+                  aspectRatio: "9:16",
+                  durationSeconds: Math.ceil(shotDuration),
+                });
+                videoResult = { url: hf.url, cost: 0 };
+                videoProvider = "higgsfield";
+              } catch {
+                videoResult = await imageToVideo(imageUrl, {
+                  motionBucketId: 127,
+                  fps: 6,
+                });
+              }
+            } else {
+              videoResult = await imageToVideo(imageUrl, {
+                motionBucketId: 127,
+                fps: 6,
+              });
+            }
+            console.log(`VIDEO_GEN ${shot.shotId} provider=${videoProvider}`);
             
             const videoResp = await fetch(videoResult.url);
             if (!videoResp.ok) throw new Error(`video_fetch_failed:${videoResp.status}`);
@@ -399,7 +422,7 @@ async function generateReelAssets(
             const { data: videoUrlData } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(videoStoragePath);
             
             videosByShot[shot.shotId] = videoUrlData.publicUrl;
-            providerLog.videos[shot.shotId] = "replicate_image_to_video";
+            providerLog.videos[shot.shotId] = videoProvider;
             totalCost += videoResult.cost ?? 0;
             break;
           } catch (err) {
