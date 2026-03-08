@@ -92,6 +92,7 @@ router.get("/:id", async (req: Request, res: Response) => {
       status: job.status,
       cost: job.cost,
       error_message: job.error_message,
+      provider_log: job.provider_log ?? null,
       created_at: job.created_at,
       updated_at: job.updated_at,
       payload,
