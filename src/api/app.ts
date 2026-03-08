@@ -32,8 +32,21 @@ const app = express();
 app.use(cors(corsOptions)); // Explicit allowlist for Vercel UI + localhost
 app.use(express.json());
 
-app.get("/health", (_req, res) => {
-  res.json({ status: "ok" });
+app.get("/health", async (_req, res) => {
+  let elevenlabs: "connected" | "missing" | "invalid" = "missing";
+  const key = process.env.ELEVENLABS_API_KEY;
+  if (key) {
+    try {
+      const r = await fetch("https://api.elevenlabs.io/v1/user", {
+        headers: { "xi-api-key": key },
+        signal: AbortSignal.timeout(5000),
+      });
+      elevenlabs = r.ok ? "connected" : "invalid";
+    } catch {
+      elevenlabs = "invalid";
+    }
+  }
+  res.json({ status: "ok", elevenlabs });
 });
 
 app.use(generateRouter);

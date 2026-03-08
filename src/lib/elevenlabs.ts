@@ -48,19 +48,21 @@ function getApiKey(): string {
     return envKey;
   }
   
-  // Try permissions file
-  const permissionsPath = path.join(
-    process.env.HOME ?? "",
-    "Documents/permissions/internal/elevenlabs_api.txt"
-  );
-  
-  if (fs.existsSync(permissionsPath)) {
-    cachedApiKey = fs.readFileSync(permissionsPath, "utf-8").trim();
-    return cachedApiKey;
+  // Try permissions files (separate key files in ~/Documents/permissions/internal/)
+  const candidates = [
+    "Documents/permissions/internal/elevenlabs_api.txt",
+    "Documents/permissions/internal/elevenlabs_api_key.txt",
+  ];
+  for (const rel of candidates) {
+    const p = path.join(process.env.HOME ?? "", rel);
+    if (fs.existsSync(p)) {
+      cachedApiKey = fs.readFileSync(p, "utf-8").trim();
+      return cachedApiKey;
+    }
   }
   
   throw new Error(
-    "ELEVENLABS_API_KEY not found. Set environment variable or add ~/Documents/permissions/internal/elevenlabs_api.txt"
+    "ELEVENLABS_API_KEY not found. Set env var or add ~/Documents/permissions/internal/elevenlabs_api.txt (or elevenlabs_api_key.txt)"
   );
 }
 
