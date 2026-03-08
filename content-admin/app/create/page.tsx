@@ -2,10 +2,12 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   fetchBrandKits,
   generateContent,
   createJob,
+  runBatch,
   type BrandKit,
 } from "@/lib/api";
 
@@ -76,7 +78,10 @@ export default function CreatePage() {
     jobId: string;
     estimatedTime?: string;
   } | null>(null);
+  const [batchMode, setBatchMode] = useState(false);
+  const [variationCount, setVariationCount] = useState<2 | 3 | 5>(3);
   const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
 
   useEffect(() => {
     fetchBrandKits().then((r) => {
@@ -101,6 +106,39 @@ export default function CreatePage() {
     setError(null);
     setResult(null);
     try {
+      if (batchMode && (format === "reel_kit" || format === "wide_video_kit")) {
+        const batchRes = await runBatch({
+          brandId: brandKey,
+          funnelStage: funnelStage ?? undefined,
+          contentIntent: contentIntent ?? undefined,
+          format: format ?? "reel_kit",
+          duration,
+          count: variationCount,
+        });
+        if ("error" in batchRes) {
+          setError(batchRes.error);
+          setLoading(false);
+          return;
+        }
+        const batchId = crypto.randomUUID();
+        const gens = batchRes.data.generations;
+        sessionStorage.setItem(
+          `batch-${batchId}`,
+          JSON.stringify({
+            jobIds: gens.map((g) => g.jobId),
+            headlines: gens.map((g) => g.headline),
+            hooks: gens.map((g) => g.hook),
+            brand: useBrandKit ? selectedKit?.name ?? "" : quickMode.name,
+            intent: contentIntent ?? "",
+            format: format ?? "reel_kit",
+            duration,
+            count: gens.length,
+          })
+        );
+        router.push(`/batch/${batchId}`);
+        setLoading(false);
+        return;
+      }
       const strategySelection = {
         campaignObjective: funnelStage === "bof" ? "lead_generation" : "awareness",
         audienceContext: "default",
@@ -452,13 +490,42 @@ export default function CreatePage() {
             </div>
           )}
 
-          {result && (
+          {result && !batchMode && (
             <div className="rounded border border-emerald-900/50 bg-emerald-950/30 px-3 py-4 text-sm">
               <p className="font-medium text-emerald-400">Job queued</p>
               <p className="mt-1 text-zinc-400">
                 ID: <Link href={`/jobs/${result.jobId}`} className="underline hover:text-white">{result.jobId}</Link>
               </p>
               <p className="text-zinc-500">Est. {result.estimatedTime}</p>
+            </div>
+          )}
+
+          {(format === "reel_kit" || format === "wide_video_kit") && (
+            <div className="rounded-lg border border-zinc-800 bg-zinc-900/30 p-4">
+              <label className="flex cursor-pointer items-center gap-3">
+                <input
+                  type="checkbox"
+                  checked={batchMode}
+                  onChange={(e) => setBatchMode(e.target.checked)}
+                  className="h-4 w-4 rounded border-zinc-600 bg-zinc-800"
+                />
+                <span className="text-sm font-medium text-zinc-300">Generate variations</span>
+              </label>
+              {batchMode && (
+                <div className="mt-3 flex items-center gap-2">
+                  <span className="text-sm text-zinc-500">Variations:</span>
+                  {([2, 3, 5] as const).map((n) => (
+                    <button
+                      key={n}
+                      type="button"
+                      onClick={() => setVariationCount(n)}
+                      className={`rounded px-3 py-1 text-sm ${variationCount === n ? "bg-zinc-600 text-white" : "bg-zinc-800 text-zinc-400"}`}
+                    >
+                      {n}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
@@ -476,7 +543,11 @@ export default function CreatePage() {
               disabled={loading}
               className="rounded bg-zinc-100 px-4 py-2 text-sm font-medium text-zinc-900 hover:bg-zinc-200 disabled:opacity-50"
             >
-              {loading ? "Generating…" : "Generate Content"}
+              {loading
+                ? "Generating…"
+                : batchMode && (format === "reel_kit" || format === "wide_video_kit")
+                  ? `Generate ${variationCount} Variations`
+                  : "Generate Content"}
             </button>
           </div>
         </div>

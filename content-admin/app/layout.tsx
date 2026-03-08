@@ -49,12 +49,6 @@ export default function RootLayout({
                 Settings
               </a>
               <a
-                href="/flows"
-                className="text-sm text-zinc-400 hover:text-zinc-100"
-              >
-                Flows
-              </a>
-              <a
                 href="/docs"
                 className="text-sm text-zinc-400 hover:text-zinc-100"
               >

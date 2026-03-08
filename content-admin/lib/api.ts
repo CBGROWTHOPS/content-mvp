@@ -231,8 +231,27 @@ export async function deleteBrandKit(
   }
 }
 
+export interface HealthApiStatus {
+  elevenlabs?: "connected" | "missing" | "invalid";
+  replicate?: "connected" | "missing" | "invalid";
+  higgsfield?: "connected" | "missing" | "invalid";
+  openai?: "connected" | "missing" | "invalid";
+}
+
+export interface HealthModelRow {
+  use: string;
+  provider: string;
+  model: string;
+}
+
+export interface HealthData {
+  status: string;
+  apis?: HealthApiStatus;
+  models?: HealthModelRow[];
+}
+
 export async function fetchHealth(): Promise<
-  { data: { status: string; elevenlabs?: string } } | { error: string }
+  { data: HealthData } | { error: string }
 > {
   try {
     const res = await fetch(`${getBaseUrl()}/health`, { cache: "no-store" });
@@ -240,7 +259,7 @@ export async function fetchHealth(): Promise<
     if (!res.ok) {
       return { error: (data as { error?: string }).error ?? res.statusText };
     }
-    return { data: data as { status: string; elevenlabs?: string } };
+    return { data: data as HealthData };
   } catch (e) {
     return {
       error: e instanceof Error ? e.message : "Failed to fetch health",
@@ -405,12 +424,23 @@ export async function upgradePrompt(
   }
 }
 
-export async function runFlow(
-  flowId: string,
-  body: Record<string, unknown>
-): Promise<{ data: Record<string, unknown> } | { error: string }> {
+export interface BatchVariation {
+  generationId: string;
+  jobId: string;
+  headline: string;
+  hook: string;
+}
+
+export async function runBatch(body: {
+  brandId: string;
+  funnelStage?: string;
+  contentIntent?: string;
+  format?: string;
+  duration?: number;
+  count?: number;
+}): Promise<{ data: { generations: BatchVariation[] } } | { error: string }> {
   try {
-    const res = await fetch(`${getBaseUrl()}/flows/${flowId}`, {
+    const res = await fetch(`${getBaseUrl()}/batch`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
@@ -420,9 +450,9 @@ export async function runFlow(
       const msg = (json as { error?: string }).error ?? res.statusText;
       return { error: msg };
     }
-    return { data: json as Record<string, unknown> };
+    return { data: json as { generations: BatchVariation[] } };
   } catch (e) {
-    return { error: e instanceof Error ? e.message : "Flow failed" };
+    return { error: e instanceof Error ? e.message : "Batch failed" };
   }
 }
 

@@ -182,43 +182,73 @@ router.post("/reel-campaign", async (req: Request, res: Response) => {
   }
 });
 
-/** Flow 3: Content Batch — generate N content records */
+/** Flow 3: Content Batch — generate N content records + queue jobs */
 router.post("/content-batch", async (req: Request, res: Response) => {
   try {
-    const { brandId, strategyPresetId, contentCount, platform } = req.body;
-    if (!brandId || !strategyPresetId) {
-      res.status(400).json({ error: "brandId and strategyPresetId required" });
+    const { brandId, funnelStage, contentIntent, format, duration, count } = req.body;
+    if (!brandId) {
+      res.status(400).json({ error: "brandId required" });
       return;
     }
-    const count = Math.min(Number(contentCount) || 1, 10);
+    const num = Math.min(Number(count) || 1, 10);
+    const dur = Number(duration) || 15;
+    const jobFormat = format === "reel" || format === "wide_video_kit" ? (format === "wide_video_kit" ? "wide_video_kit" : "reel_kit") : (format ?? "reel_kit");
+    const sceneStructure = dur === 15 ? 6 : 8;
+    const objective = funnelStage === "bof" ? "lead_generation" : "awareness";
+
     const { loadBrandForJob } = await import("../../lib/brandRegistry.js");
-    const brand = await loadBrandForJob(brandId) as { strategy_presets?: Array<{ id: string; strategy: Record<string, unknown> }> };
-    const strategy = resolveStrategy(strategyPresetId, brand?.strategy_presets, DEFAULT_PRESETS) as Record<string, unknown>;
+    await loadBrandForJob(brandId);
+
     const strategySelection: StrategySelection = {
-      campaignObjective: String(strategy.campaignObjective ?? "lead_generation"),
-      audienceContext: String(strategy.audienceContext ?? "affluent_homeowner"),
-      propertyType: String(strategy.propertyType ?? "single_family"),
-      visualEnergy: String(strategy.visualEnergy ?? "calm"),
-      hookFramework: String(strategy.hookFramework ?? "contrast"),
-      platformFormat: String(strategy.platformFormat ?? "reel_kit"),
+      campaignObjective: objective,
+      audienceContext: "default",
+      propertyType: "single_family",
+      visualEnergy: "calm",
+      hookFramework: "contrast",
+      platformFormat: jobFormat,
       directionLevel: "director",
+      funnelStage: funnelStage ?? undefined,
+      contentIntent: contentIntent ?? undefined,
     };
 
-    const generations: { generationId: string; marketingOutput: unknown }[] = [];
-    for (let i = 0; i < count; i++) {
+    const generations: { generationId: string; jobId: string; headline: string; hook: string }[] = [];
+    for (let i = 0; i < num; i++) {
       const result = await generateStructuredContent(brandId, strategySelection);
       const generationId = crypto.randomUUID();
+
       await supabase.from("generations").insert({
         id: generationId,
         brand_id: brandId,
-        strategy: strategySelection,
+        strategy: { ...strategySelection },
         marketing_output: result.marketingOutput ?? null,
         creative_brief: result.creativeBrief ?? null,
         creative_director_brief: result.creativeDirectorBrief ?? null,
         reel_blueprint: result.reelBlueprint ?? null,
         token_usage: result.tokenUsage ?? null,
       });
-      generations.push({ generationId, marketingOutput: result.marketingOutput });
+
+      const mo = result.marketingOutput;
+      const jobPayload = {
+        brand_key: brandId,
+        format: jobFormat,
+        objective,
+        hook_type: "contrast",
+        length_seconds: dur,
+        scene_structure: sceneStructure,
+        aspect_ratio: jobFormat === "wide_video_kit" ? "16:9" : "9:16",
+        variables: { concept: mo?.headline ?? "Design Your Light" },
+        funnel_stage: funnelStage ?? undefined,
+        content_intent: contentIntent ?? undefined,
+        generation_id: generationId,
+      };
+      const { jobId } = await createAndQueueJob(jobPayload, generationId);
+
+      generations.push({
+        generationId,
+        jobId,
+        headline: (mo?.headline as string) ?? "",
+        hook: (mo?.primaryText as string) ?? "",
+      });
     }
 
     res.json({ generations });
