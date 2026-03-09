@@ -84,22 +84,31 @@ export async function generateVoiceover(
     use_speaker_boost: options.voiceSettings?.useSpeakerBoost ?? true,
   };
   
-  const response = await fetch(
-    `${ELEVENLABS_API_BASE}/text-to-speech/${voiceId}`,
-    {
-      method: "POST",
-      headers: {
-        "Accept": "audio/mpeg",
-        "Content-Type": "application/json",
-        "xi-api-key": apiKey,
-      },
-      body: JSON.stringify({
-        text,
-        model_id: modelId,
-        voice_settings: voiceSettings,
-      }),
+  let response: Response;
+  try {
+    response = await fetch(
+      `${ELEVENLABS_API_BASE}/text-to-speech/${voiceId}`,
+      {
+        method: "POST",
+        headers: {
+          "Accept": "audio/mpeg",
+          "Content-Type": "application/json",
+          "xi-api-key": apiKey,
+        },
+        body: JSON.stringify({
+          text,
+          model_id: modelId,
+          voice_settings: voiceSettings,
+        }),
+        signal: AbortSignal.timeout(30000),
+      }
+    );
+  } catch (err) {
+    if (err instanceof Error && err.name === "AbortError") {
+      throw new Error("ElevenLabs timeout — skipping voiceover");
     }
-  );
+    throw err;
+  }
   
   if (!response.ok) {
     const errorText = await response.text();

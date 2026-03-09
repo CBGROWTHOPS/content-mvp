@@ -8,6 +8,7 @@ export type JobFormat =
   | "wide_video_kit";
 export type Quality = "draft" | "final";
 export type VideoGenerationMode = "image_first" | "direct_text_to_video";
+export type ReelType = "text_overlay" | "voiceover" | "broll" | "talking_head" | "ugc";
 
 export interface ModelConfig {
   provider_model_id: string;
@@ -19,14 +20,27 @@ export interface ModelConfig {
   videoMode?: VideoGenerationMode;
 }
 
+/** Higgsfield-first provider IDs for display. Actual routing uses isHiggsfieldAvailable() in worker. */
+function getProviderModelId(format: JobFormat, reelType?: ReelType | null): string {
+  if (format === "image" || format === "image_kit") {
+    return "higgsfield-nano-banana-pro+replicate-flux-fallback";
+  }
+  if (format === "reel" || format === "story" || format === "post" || format === "reel_kit" || format === "wide_video_kit") {
+    return reelType === "ugc"
+      ? "higgsfield-kling-3.0+replicate-kling-fallback"
+      : "higgsfield-dop-standard+replicate-veo3-fallback";
+  }
+  return "higgsfield-dop-standard+replicate-veo3-fallback";
+}
+
 export const MODEL_CONFIG: Record<string, ModelConfig> = {
   "image-first-pipeline": {
-    provider_model_id: "flux-dev+stable-video-diffusion",
+    provider_model_id: "higgsfield-dop-standard+replicate-veo3-fallback",
     formats_supported: ["reel", "story", "post", "reel_kit", "wide_video_kit"],
     default_for_format: { reel: true, reel_kit: true, wide_video_kit: true },
-    cost_tier: "~$0.13/video (image + animation)",
-    short_description: "Image-first: generate still with Flux, animate with SVD. More controllable.",
-    replicate_page_url: "https://replicate.com/stability-ai/stable-video-diffusion",
+    cost_tier: "~$0.13/video (Higgsfield first, Replicate fallback)",
+    short_description: "Higgsfield DoP/Kling first, Replicate fallback. Images + video.",
+    replicate_page_url: "https://platform.higgsfield.ai",
     videoMode: "image_first",
   },
   "minimax-video-01": {
@@ -48,12 +62,12 @@ export const MODEL_CONFIG: Record<string, ModelConfig> = {
     videoMode: "image_first",
   },
   "flux-schnell": {
-    provider_model_id: "black-forest-labs/flux-schnell",
+    provider_model_id: "higgsfield-nano-banana-pro+replicate-flux-fallback",
     formats_supported: ["image", "image_kit"],
     default_for_format: { image: true, image_kit: true },
-    cost_tier: "~$0.003/image",
-    short_description: "Fast text-to-image, 1–4 steps, Apache 2.0",
-    replicate_page_url: "https://replicate.com/black-forest-labs/flux-schnell",
+    cost_tier: "~$0.003/image (Higgsfield first, Replicate fallback)",
+    short_description: "Higgsfield first, Flux fallback. Fast text-to-image.",
+    replicate_page_url: "https://platform.higgsfield.ai",
   },
   "flux-dev": {
     provider_model_id: "black-forest-labs/flux-dev",
@@ -81,46 +95,54 @@ export interface SelectedModel {
 
 /**
  * Select model for generation. Uses override if provided and valid for format;
- * otherwise picks default for format. Quality is stubbed for Phase 2.1.
+ * otherwise picks default for format. Returns Higgsfield-first provider_model_id.
+ * reelType: for video jobs, pass 'ugc' for Kling path, else DoP.
  */
 export function selectModel(
   format: JobFormat,
   quality?: Quality,
-  modelKeyOverride?: string | null
+  modelKeyOverride?: string | null,
+  reelType?: ReelType | null
 ): SelectedModel {
+  let key: string = "image-first-pipeline"; // default
+  let videoMode: VideoGenerationMode | undefined;
+
   if (modelKeyOverride) {
     const config = MODEL_CONFIG[modelKeyOverride];
     if (config?.formats_supported.includes(format)) {
-      return { 
-        key: modelKeyOverride, 
-        provider_model_id: config.provider_model_id,
-        videoMode: config.videoMode,
-      };
+      key = modelKeyOverride;
+      videoMode = config.videoMode;
+    } else {
+      key = modelKeyOverride;
+      videoMode = undefined;
+    }
+  } else {
+    let found = false;
+    for (const [k, config] of Object.entries(MODEL_CONFIG)) {
+      if (config.formats_supported.includes(format) && config.default_for_format[format]) {
+        key = k;
+        videoMode = config.videoMode;
+        found = true;
+        break;
+      }
+    }
+    if (!found) {
+      for (const [k, config] of Object.entries(MODEL_CONFIG)) {
+        if (config.formats_supported.includes(format)) {
+          key = k;
+          videoMode = config.videoMode;
+          found = true;
+          break;
+        }
+      }
+    }
+    if (!found) {
+      throw new Error(`No model configured for format: ${format}`);
     }
   }
 
-  for (const [key, config] of Object.entries(MODEL_CONFIG)) {
-    if (config.formats_supported.includes(format) && config.default_for_format[format]) {
-      return { 
-        key, 
-        provider_model_id: config.provider_model_id,
-        videoMode: config.videoMode,
-      };
-    }
-  }
-
-  // Fallback: first model that supports format
-  for (const [key, config] of Object.entries(MODEL_CONFIG)) {
-    if (config.formats_supported.includes(format)) {
-      return { 
-        key, 
-        provider_model_id: config.provider_model_id,
-        videoMode: config.videoMode,
-      };
-    }
-  }
-
-  throw new Error(`No model configured for format: ${format}`);
+  const provider_model_id = getProviderModelId(format, reelType);
+  return { key, provider_model_id, videoMode };
 }
 
 export function getModelsForApi(): Array<{

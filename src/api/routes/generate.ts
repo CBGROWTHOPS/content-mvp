@@ -143,10 +143,18 @@ router.post("/generate-content", async (req: Request, res: Response) => {
 router.post("/generate", validateJobBody, async (req: Request, res: Response) => {
   try {
     const payload = req.body;
+    let reelType: "ugc" | "voiceover" | "broll" | "text_overlay" | "talking_head" | undefined;
+    const genId = (payload as { generation_id?: string }).generation_id;
+    if (genId) {
+      const { data: gen } = await supabase.from("generations").select("reel_blueprint").eq("id", genId).single();
+      const blueprint = gen?.reel_blueprint as { reelType?: string } | null;
+      if (blueprint?.reelType) reelType = blueprint.reelType as "ugc" | "voiceover" | "broll" | "text_overlay" | "talking_head";
+    }
     const selected = selectModel(
       payload.format,
       payload.quality,
-      payload.model_key
+      payload.model_key,
+      reelType
     );
 
     const kitDefaults: Record<string, unknown> = {};

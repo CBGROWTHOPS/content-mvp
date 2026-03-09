@@ -677,18 +677,34 @@ export async function processContentJob(job: Job<QueueJobPayload, void, string>)
         }
         buffer = Buffer.from(await response.arrayBuffer());
       } else {
-        // Video: Replicate direct text-to-video
+        // Video: Higgsfield first, Replicate fallback (provider_model_id may be display string)
         providerLog = { generative: "replicate" };
-        const { url: replicateUrl, cost: c } = await runReplicate(
-          payload.provider_model_id,
-          prompt,
-          {
+        const replicateModel = payload.provider_model_id?.includes("higgsfield")
+          ? "minimax/video-01"
+          : payload.provider_model_id;
+        let videoResult: { url: string; cost?: number | null };
+        if (isHiggsfieldAvailable()) {
+          try {
+            const hf = await higgsfieldGenerateVideo(prompt, {
+              aspectRatio,
+              durationSeconds: Math.min(4, payload.length_seconds ?? 4),
+            });
+            videoResult = { url: hf.url, cost: 0 };
+            providerLog = { generative: "higgsfield" };
+          } catch {
+            videoResult = await runReplicate(replicateModel, prompt, {
+              lengthSeconds: payload.length_seconds,
+              aspectRatio,
+            });
+          }
+        } else {
+          videoResult = await runReplicate(replicateModel, prompt, {
             lengthSeconds: payload.length_seconds,
             aspectRatio,
-          }
-        );
-        cost = c ?? null;
-        const response = await fetch(replicateUrl);
+          });
+        }
+        cost = videoResult.cost ?? null;
+        const response = await fetch(videoResult.url);
         if (!response.ok) {
           throw new Error(`Failed to fetch output: ${response.status}`);
         }

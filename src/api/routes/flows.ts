@@ -35,7 +35,13 @@ async function createAndQueueJob(
     throw new Error(`Invalid job payload: ${JSON.stringify(parsed.error.flatten().fieldErrors)}`);
   }
   const data = parsed.data;
-  const selected = selectModel(data.format as "reel_kit" | "image_kit", data.quality, data.model_key);
+  let reelType: "ugc" | "voiceover" | "broll" | "text_overlay" | "talking_head" | undefined;
+  if (generationId) {
+    const { data: gen } = await supabase.from("generations").select("reel_blueprint").eq("id", generationId).single();
+    const blueprint = gen?.reel_blueprint as { reelType?: string } | null;
+    if (blueprint?.reelType) reelType = blueprint.reelType as "ugc" | "voiceover" | "broll" | "text_overlay" | "talking_head";
+  }
+  const selected = selectModel(data.format as "reel_kit" | "image_kit", data.quality, data.model_key, reelType);
   const enrichedPayload = {
     ...data,
     model_key: selected.key,
