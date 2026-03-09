@@ -645,23 +645,55 @@ export async function processContentJob(job: Job<QueueJobPayload, void, string>)
     }
     
     if (!usedRemotion) {
-      // Generative path: prompt → Replicate → clip
-      providerLog = { generative: "replicate" };
+      // Generative path: image (Higgsfield first) or video (Replicate)
       const prompt = await buildPrompt(enrichedPayload as QueueJobPayload["payload"]);
-      const { url: replicateUrl, cost: c } = await runReplicate(
-        payload.provider_model_id,
-        prompt,
-        {
-          lengthSeconds: payload.length_seconds,
-          aspectRatio: payload.aspect_ratio,
+      const aspectRatio = payload.aspect_ratio ?? "9:16";
+
+      if (!isVideo) {
+        // Image: Higgsfield first, Replicate fallback
+        providerLog = { generative: "replicate" };
+        let imageResult: { url: string; cost?: number | null };
+        if (isHiggsfieldAvailable()) {
+          try {
+            const hf = await higgsfieldGenerateImage(prompt, { aspectRatio });
+            imageResult = { url: hf.url, cost: 0 };
+            providerLog = { generative: "higgsfield" };
+          } catch {
+            imageResult = await replicateGenerateImage(prompt, {
+              aspectRatio,
+              negativePrompt: "blurry, low quality, abstract, void, blank, amateur, watermark, text, logo",
+            });
+          }
+        } else {
+          imageResult = await replicateGenerateImage(prompt, {
+            aspectRatio,
+            negativePrompt: "blurry, low quality, abstract, void, blank, amateur, watermark, text, logo",
+          });
         }
-      );
-      cost = c ?? null;
-      const response = await fetch(replicateUrl);
-      if (!response.ok) {
-        throw new Error(`Failed to fetch output: ${response.status}`);
+        cost = imageResult.cost ?? null;
+        const response = await fetch(imageResult.url);
+        if (!response.ok) {
+          throw new Error(`Failed to fetch output: ${response.status}`);
+        }
+        buffer = Buffer.from(await response.arrayBuffer());
+      } else {
+        // Video: Replicate direct text-to-video
+        providerLog = { generative: "replicate" };
+        const { url: replicateUrl, cost: c } = await runReplicate(
+          payload.provider_model_id,
+          prompt,
+          {
+            lengthSeconds: payload.length_seconds,
+            aspectRatio,
+          }
+        );
+        cost = c ?? null;
+        const response = await fetch(replicateUrl);
+        if (!response.ok) {
+          throw new Error(`Failed to fetch output: ${response.status}`);
+        }
+        buffer = Buffer.from(await response.arrayBuffer());
       }
-      buffer = Buffer.from(await response.arrayBuffer());
     }
 
     if (!buffer) {

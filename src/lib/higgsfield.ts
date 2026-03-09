@@ -10,6 +10,8 @@
 
 const HIGGSFIELD_BASE = "https://platform.higgsfield.ai";
 const POLL_INTERVAL_MS = 3000;
+const FETCH_TIMEOUT_MS = 60000;  // 60s per request — prevents hanging on slow API
+const MAX_POLL_ATTEMPTS = 20;    // 20 × 3s = 60s total before giving up
 
 /** Platform model IDs - see https://docs.higgsfield.ai */
 const MODEL_IMAGE = "higgsfield-ai/soul/standard";
@@ -48,10 +50,10 @@ async function pollRequestUntilComplete(requestId: string): Promise<HiggsfieldRe
   const auth = getAuthHeader();
   const statusUrl = `${HIGGSFIELD_BASE}/requests/${requestId}/status`;
 
-  for (;;) {
+  for (let attempt = 1; attempt <= MAX_POLL_ATTEMPTS; attempt++) {
     const res = await fetch(statusUrl, {
       headers: { Authorization: auth },
-      signal: AbortSignal.timeout(15000),
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
     });
 
     if (!res.ok) {
@@ -78,8 +80,12 @@ async function pollRequestUntilComplete(requestId: string): Promise<HiggsfieldRe
       return { url };
     }
 
+    if (attempt >= MAX_POLL_ATTEMPTS) {
+      throw new HiggsFieldError(`Request ${requestId} timed out after ${MAX_POLL_ATTEMPTS} status checks (~${(MAX_POLL_ATTEMPTS * POLL_INTERVAL_MS) / 1000}s)`);
+    }
     await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
   }
+  throw new HiggsFieldError(`Request ${requestId} exceeded max poll attempts`);
 }
 
 async function submitToModel(
@@ -95,7 +101,7 @@ async function submitToModel(
       Authorization: auth,
     },
     body: JSON.stringify(body),
-    signal: AbortSignal.timeout(30000),
+    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
   });
 
   if (!res.ok) {
